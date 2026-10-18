@@ -1,0 +1,232 @@
+{
+  "name": "muxdock",
+  "displayName": "MuxDock",
+  "description": "Manage persistent tmux, zmx, screen, Zellij, shpool, abduco and a4 sessions in one terminal dock.",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#102335",
+    "theme": "dark"
+  },
+  "version": "0.0.1",
+  "publisher": "muxdock",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "terminal",
+    "tmux",
+    "zmx",
+    "screen",
+    "zellij",
+    "shpool",
+    "abduco",
+    "sessions",
+    "persistent",
+    "multiplexer"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./dist/extension.cjs",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "muxdock",
+          "title": "MuxDock",
+          "icon": "media/muxdock.svg"
+        }
+      ]
+    },
+    "views": {
+      "muxdock": [
+        {
+          "type": "webview",
+          "id": "muxdock.dock",
+          "name": "MuxDock",
+          "contextualTitle": "MuxDock"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "muxdock.open",
+        "title": "MuxDock: 打开终端面板"
+      },
+      {
+        "command": "muxdock.refresh",
+        "title": "刷新",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "muxdock.newSession",
+        "title": "新建会话",
+        "icon": "$(add)"
+      },
+      {
+        "command": "muxdock.settings",
+        "title": "设置",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "muxdock.logs",
+        "title": "MuxDock: 查看日志"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "muxdock.newSession",
+          "when": "view == muxdock.dock",
+          "group": "navigation@1"
+        },
+        {
+          "command": "muxdock.refresh",
+          "when": "view == muxdock.dock",
+          "group": "navigation@2"
+        },
+        {
+          "command": "muxdock.settings",
+          "when": "view == muxdock.dock",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "MuxDock",
+      "properties": {
+        "muxdock.showTabs": {
+          "type": "boolean",
+          "default": true,
+          "description": "在终端顶部显示已打开的终端标签页。"
+        },
+        "muxdock.maxTabs": {
+          "type": "integer",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "最多保留的终端标签页数量（隐藏标签栏时仍生效）。超过数量时移除最早打开的标签，只断开客户端，保留后台会话。"
+        },
+        "muxdock.visibleManagers": {
+          "type": "array",
+          "default": [
+            "tmux",
+            "zmx",
+            "screen",
+            "zellij",
+            "shpool",
+            "abduco",
+            "a4"
+          ],
+          "items": {
+            "type": "string",
+            "enum": [
+              "tmux",
+              "zmx",
+              "screen",
+              "zellij",
+              "shpool",
+              "abduco",
+              "a4"
+            ]
+          },
+          "uniqueItems": true,
+          "description": "选择右侧显示的终端管理器，按列表顺序排列。留空隐藏全部管理器；已打开的终端标签不受影响。"
+        },
+        "muxdock.showUnavailable": {
+          "type": "boolean",
+          "default": false,
+          "description": "显示未安装的管理器。"
+        },
+        "muxdock.refreshInterval": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "面板可见时的会话刷新间隔（秒）。"
+        },
+        "muxdock.fontSize": {
+          "type": "number",
+          "default": 14,
+          "minimum": 8,
+          "maximum": 40,
+          "description": "终端字体大小。"
+        },
+        "muxdock.fontFamily": {
+          "type": "string",
+          "default": "",
+          "description": "终端字体，留空时使用 VS Code 终端字体。"
+        },
+        "muxdock.scrollback": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 1000,
+          "maximum": 100000,
+          "description": "每个连接保留的终端滚动行数。"
+        },
+        "muxdock.executables": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "管理器可执行文件的绝对路径，例如 {\"tmux\": \"/opt/homebrew/bin/tmux\"}。"
+        },
+        "muxdock.arguments": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "管理器全局参数，例如 {\"tmux\": [\"-L\", \"work\"]}。每个数组项作为独立参数传递。"
+        },
+        "muxdock.defaultDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "新会话的工作目录。留空时使用当前工作区或用户主目录。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "postinstall": "node scripts/native-permissions.mjs",
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "check": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "test:integration": "tsx test/integration.ts",
+    "test:ui": "node scripts/ui-smoke.mjs",
+    "icon:build": "node scripts/render-icon.mjs",
+    "vscode:prepublish": "npm run check && npm run build",
+    "package": "vsce package --no-dependencies --allow-missing-repository --out artifacts/"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.6.0",
+    "@xterm/headless": "^6.0.0",
+    "esbuild": "^0.25.0",
+    "playwright": "^1.56.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

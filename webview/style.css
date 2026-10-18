@@ -1,0 +1,120 @@
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { padding: 0; background: var(--vscode-panel-background, #181818); color: var(--vscode-foreground, #ccc); font: var(--vscode-font-size, 13px) var(--vscode-font-family, sans-serif); }
+button, input { font: inherit; }
+button { color: inherit; border: 0; cursor: pointer; background: transparent; }
+button:disabled { opacity: .35; cursor: default; }
+button:focus-visible, [tabindex]:focus-visible { outline: 1px solid var(--vscode-focusBorder, #007fd4); outline-offset: -1px; }
+[hidden] { display: none !important; }
+.dock { height: 100%; display: flex; }
+.terminal-area { display: flex; flex: 1; min-width: 100px; flex-direction: column; }
+.terminal-header, .sidebar-header { display: flex; align-items: center; height: 35px; flex-shrink: 0; padding: 0 10px; gap: 8px; }
+.terminal-header { border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b); }
+.terminal-heading { display: flex; align-items: center; min-width: 0; gap: 8px; flex: 1; }
+.terminal-tabs { display: flex; flex: 1; min-width: 0; height: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.terminal-tabs::-webkit-scrollbar { display: none; }
+.terminal-tab { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; min-width: 110px; max-width: 220px; height: 100%; padding: 0 7px 0 9px; border-right: 1px solid var(--vscode-panel-border, #2b2b2b); border-bottom: 2px solid transparent; color: var(--vscode-tab-inactiveForeground, var(--vscode-descriptionForeground)); cursor: pointer; }
+.terminal-tab:hover { background: var(--vscode-tab-hoverBackground, #ffffff0a); }
+.terminal-tab[aria-selected="true"] { color: var(--vscode-tab-activeForeground, var(--vscode-foreground)); background: var(--vscode-tab-activeBackground, #ffffff08); border-bottom-color: var(--vscode-focusBorder, #007fd4); }
+.tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.tab-manager { font-size: 10px; color: var(--vscode-descriptionForeground); }
+.tab-close { width: 20px; height: 20px; margin-left: auto; opacity: 0; }
+.terminal-tab:hover .tab-close, .terminal-tab:focus-within .tab-close, .terminal-tab[aria-selected="true"] .tab-close { opacity: 1; }
+.terminal-tab.closed .tab-label { opacity: .65; }
+.terminal-heading > .icon { color: var(--vscode-descriptionForeground); }
+.terminal-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.manager-badge { font-size: 10px; line-height: 17px; padding: 0 5px; color: var(--vscode-descriptionForeground); border: 1px solid var(--vscode-panel-border, #333); border-radius: 3px; }
+.terminal-actions, .sidebar-actions { display: flex; align-items: center; gap: 2px; }
+.icon { display: inline-flex; flex-shrink: 0; width: 16px; height: 16px; align-items: center; justify-content: center; }
+.icon svg { width: 16px; height: 16px; }
+.icon-button { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; padding: 3px; border-radius: 4px; flex-shrink: 0; }
+.icon-button:hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground, #ffffff16); }
+.sidebar-toggle { margin-left: 4px; }
+.terminal-content { flex: 1; min-height: 0; position: relative; overflow: hidden; container-type: size; }
+/* FitAddon measures the instance's full size; keep its spacing outside that box. */
+.terminal-hosts { position: absolute; inset: 10px 6px 4px 12px; }
+.terminal-instance { width: 100%; height: 100%; }
+.xterm { height: 100%; }
+.xterm-viewport { scrollbar-width: thin; }
+.terminal-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 24px; flex-shrink: 0; padding: 0 12px; color: var(--vscode-descriptionForeground); font-size: 10px; border-top: 1px solid var(--vscode-panel-border, #2b2b2b); }
+.connection-status, .host-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.connection-status.connected::before { content: '●'; color: var(--vscode-testing-iconPassed, #73c991); margin-right: 6px; font-size: 8px; }
+.host-name { text-align: right; }
+.welcome { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 20px; text-align: center; overflow: auto; overscroll-behavior: contain; }
+.welcome > * { flex-shrink: 0; }
+.welcome-symbol { width: 48px; height: 43px; display: grid; place-items: center; margin-bottom: 8px; color: var(--vscode-descriptionForeground); border: 1px solid var(--vscode-panel-border, #333); border-radius: 7px; }
+.welcome-symbol .icon, .welcome-symbol svg { width: 28px; height: 28px; }
+.welcome h1 { font-size: 17px; font-weight: 500; margin: 13px 0 0; }
+.welcome p { line-height: 1.8; color: var(--vscode-descriptionForeground); margin: 10px 0 18px; font-size: 12px; }
+.primary { background: var(--vscode-button-background, #0078d4); color: var(--vscode-button-foreground, white); border-radius: 3px; padding: 7px 23px; }
+.primary:hover { background: var(--vscode-button-hoverBackground, #026ec1); }
+.welcome-note { color: var(--vscode-descriptionForeground); font-size: 10px; margin-top: 17px; opacity: .7; }
+@container (max-height: 240px) {
+  .welcome { padding: 12px; }
+  .welcome-symbol, .welcome-note { display: none; }
+  .welcome h1 { margin: 0; }
+  .welcome p { line-height: 1.6; margin: 8px 0 12px; }
+}
+@container (max-height: 145px) {
+  .welcome p { display: none; }
+  .welcome h1 { margin-bottom: 12px; font-size: 15px; }
+}
+@container (max-height: 80px) {
+  .welcome { padding: 6px 12px; }
+  .welcome h1 { display: none; }
+}
+.splitter { width: 4px; flex-shrink: 0; cursor: col-resize; border-left: 1px solid var(--vscode-panel-border, #2b2b2b); z-index: 2; }
+.splitter:hover, .splitter:focus-visible { background: var(--vscode-sash-hoverBorder, #007fd4); }
+.resizing { cursor: col-resize; user-select: none; }
+.sidebar { display: flex; flex-direction: column; flex-shrink: 0; min-width: 170px; background: var(--vscode-sideBar-background, #181818); }
+.sidebar-header { justify-content: space-between; padding-left: 12px; padding-right: 7px; }
+.sidebar-heading { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.sidebar-heading > [aria-expanded="true"] { background: var(--vscode-toolbar-activeBackground, #ffffff16); }
+.sidebar-title { font-size: 11px; font-weight: 600; color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground)); }
+.filter-wrap { flex-shrink: 0; padding: 2px 10px 10px; }
+input { border: 1px solid var(--vscode-input-border, transparent); background: var(--vscode-input-background, #313131); color: var(--vscode-input-foreground, #ccc); border-radius: 3px; padding: 5px 7px; outline: none; min-width: 0; }
+input::placeholder { color: var(--vscode-input-placeholderForeground, #999); }
+input:focus { border-color: var(--vscode-focusBorder, #007fd4); }
+.filter { width: 100%; font-size: 12px; }
+.tree { flex: 1; min-height: 0; overflow: auto; padding-bottom: 12px; scrollbar-width: thin; }
+.tree-row { display: flex; align-items: center; gap: 5px; height: 29px; padding-right: 8px; cursor: pointer; user-select: none; color: var(--vscode-sideBar-foreground, var(--vscode-foreground)); }
+.tree-row:hover { background: var(--vscode-list-hoverBackground, #ffffff0a); }
+.tree-row.selected { background: var(--vscode-list-inactiveSelectionBackground, #37373d); }
+.tree-row:focus { background: var(--vscode-list-activeSelectionBackground, #04395e); color: var(--vscode-list-activeSelectionForeground, white); }
+.level-0 { padding-left: 3px; }
+.level-1 { padding-left: 17px; }
+.level-2 { padding-left: 32px; }
+.tree-row > .icon { color: var(--vscode-descriptionForeground); }
+.manager-row { margin-top: 3px; font-weight: 500; }
+.manager-row > .icon { color: var(--vscode-symbolIcon-classForeground, #c7b48b); }
+.chevron-space { width: 16px; height: 20px; flex-shrink: 0; }
+.chevron { padding: 0; }
+.tree-row[aria-expanded="true"] > .chevron .icon { transform: rotate(90deg); }
+.row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; font-size: 12px; }
+.count { min-width: 16px; font-size: 10px; color: var(--vscode-descriptionForeground); text-align: center; font-weight: 400; }
+.row-action { opacity: 0; width: 20px; height: 22px; }
+.tree-row:hover .row-action, .tree-row:focus-within .row-action { opacity: 1; }
+.connection-dot { font-size: 7px; color: var(--vscode-testing-iconPassed, #73c991); }
+.other-client { color: var(--vscode-descriptionForeground); font-size: 11px; }
+.active-window .row-label { color: var(--vscode-terminal-ansiGreen, #73c991); }
+.active-window > .icon-window::after { content: ''; width: 4px; height: 4px; position: absolute; border-radius: 50%; background: var(--vscode-terminal-ansiGreen, #73c991); margin-left: -14px; }
+.unavailable { opacity: .48; cursor: default; }
+.unavailable .count { white-space: nowrap; }
+.empty-manager { height: 27px; display: block; padding-left: 43px; font-size: 11px; color: var(--vscode-descriptionForeground); }
+.empty-manager:hover { color: var(--vscode-textLink-foreground, #4daafc); }
+.manager-error { margin: 4px 12px 6px 28px; font-size: 11px; line-height: 1.5; color: var(--vscode-errorForeground, #f48771); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.tree-empty { padding: 20px 14px; color: var(--vscode-descriptionForeground); line-height: 1.8; white-space: pre-line; font-size: 12px; }
+.sidebar-footer { height: 24px; display: flex; align-items: center; flex-shrink: 0; padding: 0 12px; font-size: 10px; color: var(--vscode-descriptionForeground); border-top: 1px solid var(--vscode-panel-border, #2b2b2b); }
+.search-bar { display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: var(--vscode-editorWidget-background, #252526); }
+.search-bar input { flex: 1; padding: 3px 6px; }
+.search-bar button { width: 24px; height: 24px; border-radius: 3px; }
+.search-bar button:hover { background: var(--vscode-toolbar-hoverBackground); }
+.context-menu { position: fixed; z-index: 100; min-width: 170px; max-width: 300px; padding: 4px; border: 1px solid var(--vscode-menu-border, #454545); border-radius: 5px; background: var(--vscode-menu-background, #252526); color: var(--vscode-menu-foreground, #ccc); box-shadow: 0 3px 12px var(--vscode-widget-shadow, #0006); }
+.context-menu button { display: block; width: 100%; text-align: left; padding: 6px 12px; font-size: 12px; border-radius: 3px; }
+.context-menu button:hover:not(:disabled), .context-menu button:focus-visible { background: var(--vscode-menu-selectionBackground, #04395e); color: var(--vscode-menu-selectionForeground, white); }
+.context-menu .danger { color: var(--vscode-errorForeground, #f48771); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinning .icon { animation: spin 1s linear infinite; }
+@media (max-width: 520px) { .terminal-actions [aria-label="复制选中内容"], .host-name { display: none; } .terminal-header { padding-left: 6px; } }
+@media (prefers-reduced-motion: reduce) { .spinning .icon { animation: none; } }

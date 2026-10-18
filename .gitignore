@@ -1,0 +1,8 @@
+node_modules/
+dist/
+artifacts/
+.test-tools/
+.test-results/
+.vscode-test/
+*.vsix
+.DS_Store

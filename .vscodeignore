@@ -1,0 +1,8 @@
+**/*
+!package.json
+!README.md
+!LICENSE
+!CHANGELOG.md
+!media/muxdock.svg
+!media/icon.png
+!dist/**

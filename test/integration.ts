@@ -1,0 +1,110 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { Terminal } from '@xterm/headless';
+import { Adapter } from '../src/adapters';
+import { Connections } from '../src/connections';
+import { MANAGER_IDS, type ManagerId, type Command, type SessionInfo } from '../src/model';
+import { run, cleanEnvironment } from '../src/runner';
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+async function until<T>(fn: () => Promise<T | undefined | false>, description: string, timeout = 20000): Promise<T> {
+  const end = Date.now() + timeout;
+  while (Date.now() < end) { const value = await fn(); if (value) return value; await sleep(100); }
+  throw new Error(`Timed out: ${description}`);
+}
+async function main() {
+let paths: Partial<Record<ManagerId, string>> = {};
+try { paths = JSON.parse(await readFile('.test-tools/executables.json', 'utf8')); } catch { /* Use installed tools when no test toolchain was prepared. */ }
+const root = await mkdtemp(path.join(os.tmpdir().startsWith('/var/') ? '/tmp' : os.tmpdir(), 'muxdock-'));
+const env = { ...cleanEnvironment(), SHELL: '/bin/sh', XDG_CACHE_HOME: `${root}/cache`, XDG_CONFIG_HOME: `${root}/config`, XDG_STATE_HOME: `${root}/state`, XDG_RUNTIME_DIR: `${root}/run`, ZMX_DIR: `${root}/zmx`, SCREENDIR: `${root}/screen`, TERM: 'xterm-256color' };
+for (const directory of ['cache', 'config', 'state', 'run', 'screen', 'zmx']) await mkdir(`${root}/${directory}`, { mode: 0o700 });
+await mkdir(`${root}/config/zellij`);
+await writeFile(`${root}/config/zellij/config.kdl`, 'show_release_notes false\nshow_startup_tips false\n');
+const results: Record<string, unknown>[] = [];
+let failed = false;
+for (const id of MANAGER_IDS.filter(id => !process.env.MUXDOCK_TEST_MANAGERS || process.env.MUXDOCK_TEST_MANAGERS.split(',').includes(id))) {
+  const args = id === 'tmux' ? ['-S', `${root}/tmux.sock`, '-f', '/dev/null'] : id === 'shpool' ? ['-s', `${root}/shpool.sock`, '-D'] : id === 'a4' && paths.a4?.includes('.test-tools') ? ['-i', path.resolve('.test-tools/a4-main/etc/a4.ini')] : [];
+  const execute = (command: Command) => run({ ...command, env: { ...env, ...command.env } });
+  const adapter = new Adapter(id, { executable: paths[id], args }, execute);
+  const runtime = new Connections();
+  const terminal = new Terminal({ cols: 100, rows: 28, allowProposedApi: true });
+  let rawOutput = '';
+  const exits: unknown[] = [];
+  let daemon: ReturnType<typeof spawn> | undefined;
+  let created: SessionInfo | undefined;
+  const name = `md_${id}_${process.pid}`;
+  const screen = () => { const buffer = terminal.buffer.active; const lines: string[] = []; for (let i = 0; i < buffer.length; i++) lines.push(buffer.getLine(i)?.translateToString(true) || ''); return lines.join('\n'); };
+  runtime.on('output', message => { rawOutput = (rawOutput + message.data).slice(-4000); terminal.write(message.data); });
+  runtime.on('exit', event => exits.push(event));
+  terminal.onData(data => { if (runtime.activeKey) runtime.input(runtime.activeKey, data); });
+  try {
+    if (!(await adapter.probe())) { results.push({ id, status: 'SKIP', reason: 'executable unavailable' }); console.log(`${id}: SKIP`); continue; }
+    if (id === 'shpool') {
+      const command = adapter.command(['daemon']);
+      daemon = spawn(command.file, command.args, { env, stdio: 'ignore' });
+      await until(async () => { try { await readFile(`${root}/shpool.sock`); } catch (error: any) { return error.code !== 'ENOENT'; } return true; }, 'shpool daemon');
+    }
+    const command = adapter.create(name, '/bin/sh'); command.env = env;
+    runtime.connect(id, { id: name, name }, command, root);
+    created = await until(async () => { const manager = await adapter.list(); if (manager.error) throw new Error(manager.error); return manager.sessions.find(session => session.name === name); }, `${id} create`);
+    runtime.reconcile([await adapter.list()]);
+    if (id === 'zmx') await sleep(400);
+    else await until(async () => /(?:sh-[\d.]+\$|\$ |# )/.test(screen()), `${id} interactive shell ready`);
+    if (id === 'zellij') {
+      await sleep(1800);
+      await until(async () => { if (/<ESC> - Dismiss/.test(screen())) { runtime.input(runtime.activeKey!, '\x1b'); return false; } return true; }, 'Zellij first-run dialog dismissed');
+    }
+    runtime.input(runtime.activeKey!, `printf 'MD_RUN_%s\\n' '${id}'\r`);
+    await until(async () => screen().includes(`MD_RUN_${id}`), `${id} real shell output`);
+    if (id === 'tmux') {
+      await adapter.windowAction('new', created, undefined, 'logs');
+      let session = (await adapter.list()).sessions.find(session => session.id === created!.id)!;
+      assert.equal(session.windows?.length, 2);
+      const window = session.windows!.find(window => window.name === 'logs')!;
+      await adapter.windowAction('rename', session, window, 'renamed');
+      await adapter.windowAction('select', session, window);
+      session = (await adapter.list()).sessions.find(session => session.id === created!.id)!;
+      assert.equal(session.windows?.find(window => window.active)?.name, 'renamed');
+      const stableId = session.id;
+      await adapter.rename(session, `${name}_renamed`);
+      created = (await adapter.list()).sessions.find(session => session.id === stableId && session.name === `${name}_renamed`)!;
+      assert.ok(created);
+      await adapter.windowAction('select', created, created.windows![0]);
+    }
+    await adapter.detach(created);
+    if (id === 'shpool') await until(async () => (await adapter.list()).sessions.find(session => session.id === created!.id)?.attached === 0, 'shpool client released');
+    runtime.disconnect(runtime.activeKey!);
+    const afterDetach = (await adapter.list()).sessions.find(session => session.id === created!.id);
+    assert.ok(afterDetach, `${id} session must survive detaching its client`);
+    terminal.reset();
+    const reconnect = adapter.attach(afterDetach); reconnect.env = env;
+    runtime.connect(id, afterDetach, reconnect, root);
+    await sleep(1200);
+    runtime.input(runtime.activeKey!, `printf 'MD_BACK_%s\\n' '${id}'\r`);
+    await until(async () => screen().includes(`MD_BACK_${id}`), `${id} reattach`);
+    if (adapter.capabilities.kill) await adapter.kill(afterDetach);
+    else runtime.input(runtime.activeKey!, 'exit\r');
+    await until(async () => !(await adapter.list()).sessions.some(session => session.id === afterDetach.id), `${id} cleanup`);
+    results.push({ id, status: 'PASS', checks: ['create', 'shell input/output', 'detach persistence', 'reattach', 'cleanup', ...(id === 'tmux' ? ['window create/rename/select', 'session rename'] : [])] });
+    console.log(`${id}: PASS`);
+  } catch (error) {
+    failed = true;
+    results.push({ id, status: 'FAIL', error: error instanceof Error ? error.message : String(error), terminal: screen().slice(-3000), rawOutput, exits });
+    console.error(`${id}: FAIL ${error}`);
+    if (created && adapter.capabilities.kill) await adapter.kill(created).catch(() => {});
+    else if (runtime.activeKey) runtime.input(runtime.activeKey, 'exit\r');
+    await sleep(200);
+  } finally {
+    runtime.dispose(); terminal.dispose(); daemon?.kill('SIGTERM');
+    if (id === 'tmux') await execute(adapter.command(['kill-server'])).catch(() => {});
+  }
+}
+await mkdir('.test-results', { recursive: true });
+await writeFile('.test-results/integration.json', JSON.stringify({ platform: process.platform, arch: process.arch, results }, null, 2));
+await rm(root, { recursive: true, force: true });
+if (failed) process.exitCode = 1;
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });
