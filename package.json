@@ -9,6 +9,14 @@
   },
   "version": "0.0.1",
   "publisher": "muxdock",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ylzz1997/MuxDock.git"
+  },
+  "homepage": "https://github.com/ylzz1997/MuxDock#readme",
+  "bugs": {
+    "url": "https://github.com/ylzz1997/MuxDock/issues"
+  },
   "license": "MIT",
   "engines": {
     "vscode": "^1.95.0"
@@ -210,7 +218,7 @@
     "test:ui": "node scripts/ui-smoke.mjs",
     "icon:build": "node scripts/render-icon.mjs",
     "vscode:prepublish": "npm run check && npm run build",
-    "package": "vsce package --no-dependencies --allow-missing-repository --out artifacts/"
+    "package": "vsce package --no-dependencies --out artifacts/"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

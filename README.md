@@ -141,7 +141,11 @@ Detach it from its existing client before opening it in MuxDock.
 
 **More diagnostics are needed**
 
-Open the MuxDock output channel using `muxdock.logs`. Include the editor version, workspace host OS, manager version and relevant log output when reporting an issue.
+Open the MuxDock output channel using `muxdock.logs`. Include the editor version, workspace host OS, manager version and relevant log output when [reporting an issue](https://github.com/ylzz1997/MuxDock/issues).
+
+## Source
+
+Source code and development documentation are available in the [MuxDock repository](https://github.com/ylzz1997/MuxDock).
 
 ## License
 

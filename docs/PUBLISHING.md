@@ -19,27 +19,45 @@ The README, changelog and Marketplace listing are in English. The extension's ex
 
 ## Visual Studio Marketplace
 
-1. Register or sign in to the **muxdock** publisher in the [publisher management portal](https://marketplace.visualstudio.com/manage).
-2. Upload `artifacts/muxdock-0.0.1.vsix` as a new Visual Studio Code extension.
-3. Review the icon, description, README and license before publishing.
+1. Sign in with your Microsoft account at the [publisher management portal](https://marketplace.visualstudio.com/manage).
+2. Create a publisher with ID **muxdock** and display name **MuxDock**, or select it if you already have publishing rights. The ID must match `package.json`.
+3. Choose **New extension → Visual Studio Code** and upload `artifacts/muxdock-0.0.1.vsix`.
+4. Review the imported icon, description, README and license, then submit the extension. Follow its validation status in the portal.
+
+The browser upload route uses the prepared VSIX directly. After release, verify that `muxdock.muxdock` appears in VS Code's Extensions view.
 
 For authentication or automated publishing, follow the [official VS Code publishing guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
 ## Open VSX and Cursor
 
-Cursor's extension library uses Open VSX. A Visual Studio Marketplace upload is a separate submission; follow the [Cursor team's extension-library announcement](https://forum.cursor.com/t/extension-marketplace-changes-transition-to-openvsx/109138) and the [Open VSX publishing guide](https://github.com/eclipse-openvsx/openvsx/wiki/Publishing-Extensions).
+Cursor uses Open VSX through its own marketplace proxy, so submit to Open VSX separately. See the [current Cursor extension documentation](https://cursor.com/help/customization/extensions) and the [Open VSX publishing guide](https://github.com/eclipse-openvsx/openvsx/wiki/Publishing-Extensions).
 
-1. Sign in to Open VSX, connect the required Eclipse account and accept its Publisher Agreement.
-2. Create an access token in your Open VSX account settings.
-3. Create or obtain publishing rights for the **muxdock** namespace.
-4. Upload the packaged VSIX using the `ovsx` CLI. The official guide documents namespace creation and publishing an existing package.
-5. Verify the resulting listing and its availability in Cursor.
+1. Sign in to [Open VSX](https://open-vsx.org/) with GitHub.
+2. Create or link an [Eclipse account](https://accounts.eclipse.org/user/register), using the same GitHub username. In Open VSX **Settings**, sign in with Eclipse and accept the **Publisher Agreement** if you agree to its terms.
+3. In **Settings → Access Tokens**, generate a publishing token.
+4. In the local terminal, read the token into a variable without echoing it. Run this line, paste the token, then press Enter (macOS zsh):
+
+   ```sh
+   read -r -s OVSX_PAT
+   ```
+
+5. From the project directory, create the **muxdock** namespace and upload the prepared package:
+
+   ```sh
+   npx --yes ovsx create-namespace muxdock -p "$OVSX_PAT"
+   npx --yes ovsx publish artifacts/muxdock-0.0.1.vsix -p "$OVSX_PAT"
+   unset OVSX_PAT
+   ```
+
+   Skip namespace creation if it already exists and you have publishing rights. If someone else owns it, resolve access or use an available publisher ID consistently in both registries and rebuild the VSIX.
+
+6. Check the Open VSX listing, then search for **MuxDock** in Cursor. Cursor applies its own checks before offering extensions, so Open VSX publication alone does not confirm Cursor search availability. The CLI can also report registry validation failures; use its result before proceeding.
 
 Keep credentials in your account or publishing environment. This repository does not require tokens to build or package the extension.
 
-## Add the public repository later
+## Repository metadata
 
-Once the public repository exists, add its real `repository`, `homepage` and `bugs` URLs to `package.json`. Those fields are currently omitted intentionally.
+The manifest already contains the repository `https://github.com/ylzz1997/MuxDock.git`, its README homepage and its GitHub Issues URL. Push the release sources to that repository so the published package and public documentation match.
 
 If screenshots are added to the README, use publicly accessible HTTPS image URLs or let `vsce` resolve relative image paths against a real public repository. See the [Marketplace presentation guidance](https://code.visualstudio.com/api/references/extension-manifest#marketplace-presentation-tips).
 

@@ -8,6 +8,8 @@
 - **Publisher / Open VSX namespace:** `muxdock`
 - **Category:** Other
 - **License:** MIT
+- **Repository:** https://github.com/ylzz1997/MuxDock
+- **Issues:** https://github.com/ylzz1997/MuxDock/issues
 - **Icon:** `media/icon.png` — 512 × 512 PNG
 - **Banner:** `#102335`, dark theme
 
@@ -33,4 +35,4 @@ terminal, tmux, zmx, screen, zellij, shpool, abduco, sessions, persistent, multi
 
 The manifest uses the PNG icon. The editable icon source is `media/icon.svg`; the dock's theme-aware monochrome icon remains `media/muxdock.svg`.
 
-The public repository URL will be added later. There are no placeholder repository, issue-tracker, badge or screenshot URLs in the listing. The README is self-contained and does not depend on hosted images.
+The manifest links to the public repository, README and issue tracker at `ylzz1997/MuxDock`. The README is self-contained and does not depend on hosted images.
