@@ -4,6 +4,7 @@
 
 - Add a dedicated dock with an interactive terminal on the left and a manager/session tree on the right.
 - Support tmux, zmx, screen, Zellij, shpool, abduco and a4.
+- Preserve every session when zmx returns an indented multi-session list.
 - Create, attach to and detach from named sessions; offer session termination and renaming where supported by the backend.
 - Browse, select, create, rename and close tmux windows while preserving native shortcuts and pane layouts.
 - Add terminal tabs with switching, closing, keyboard navigation, an optional tab bar and a configurable FIFO limit.

@@ -41,15 +41,17 @@ Cursor uses Open VSX through its own marketplace proxy, so submit to Open VSX se
    read -r -s OVSX_PAT
    ```
 
-5. From the project directory, create the **muxdock** namespace and upload the prepared package:
+5. From the project directory, create the **muxdock** namespace and upload the prepared package. These commands explicitly run the CLI with a temporary Node.js 22 runtime, including when the system default is Node.js 20:
 
    ```sh
-   npx --yes ovsx create-namespace muxdock -p "$OVSX_PAT"
-   npx --yes ovsx publish artifacts/muxdock-0.0.1.vsix -p "$OVSX_PAT"
+   npm exec --yes --package=node@22 --package=ovsx@1.3.0 -- ovsx create-namespace muxdock -p "$OVSX_PAT"
+   npm exec --yes --package=node@22 --package=ovsx@1.3.0 -- ovsx publish artifacts/muxdock-0.0.1.vsix -p "$OVSX_PAT"
    unset OVSX_PAT
    ```
 
    Skip namespace creation if it already exists and you have publishing rights. If someone else owns it, resolve access or use an available publisher ID consistently in both registries and rebuild the VSIX.
+
+   `ovsx` 1.3.0 and its `vsce` dependency require Node.js 22 or later. With an older system Node, npm may print engine warnings while downloading the temporary tools, but the commands above execute them under Node.js 22. Verify without publishing with `npm exec --yes --package=node@22 --package=ovsx@1.3.0 -- ovsx --version`. An `ERR_REQUIRE_ESM` under Node.js 20 indicates that the CLI was started with the wrong runtime.
 
 6. Check the Open VSX listing, then search for **MuxDock** in Cursor. Cursor applies its own checks before offering extensions, so Open VSX publication alone does not confirm Cursor search availability. The CLI can also report registry validation failures; use its result before proceeding.
 

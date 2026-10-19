@@ -24,9 +24,10 @@ export function parseTmuxWindows(text: string): Map<string, WindowInfo[]> {
   return result;
 }
 export function parseZmx(text: string): SessionInfo[] {
-  return text.trim().split('\n').flatMap(line => {
+  return text.split(/\r?\n/).flatMap(line => {
     if (!line.trim()) return [];
-    const fields = Object.fromEntries(line.split('\t').map(field => { const at = field.indexOf('='); return [field.slice(0, at), field.slice(at + 1)]; }));
+    // zmx indents every row; trimming only the complete output loses all but the first session.
+    const fields = Object.fromEntries(line.trimStart().split('\t').flatMap(field => { const at = field.indexOf('='); return at > 0 ? [[field.slice(0, at), field.slice(at + 1)]] : []; }));
     if (!fields.name) return [];
     return [{ id: fields.name, name: fields.name, attached: Number(fields.clients) || 0, detail: fields.dir }];
   });

@@ -23,6 +23,14 @@ test('zmx key-value output preserves directories with spaces and equals signs', 
   assert.deepEqual(parseZmx('name=dev\tpid=123\tclients=2\tcreated=456\tdir=/tmp/my project=a\n'), [{ id: 'dev', name: 'dev', attached: 2, detail: '/tmp/my project=a' }]);
   assert.deepEqual(parseZmx(''), []);
 });
+test('zmx keeps every indented row when listing multiple sessions', () => {
+  const output = '  name=0\tpid=43776\tclients=0\tcreated=1792374522\tcwd=file://host/Users/test/MuxDock\n'
+    + '  name=1\tpid=43843\tclients=2\tcreated=1792374525\tcwd=file://host/Users/test\n';
+  assert.deepEqual(parseZmx(output).map(({ id, name, attached }) => ({ id, name, attached })), [
+    { id: '0', name: '0', attached: 0 }, { id: '1', name: '1', attached: 2 }
+  ]);
+  assert.deepEqual(parseZmx(`\n${output}\n`).map(session => session.name), ['0', '1']);
+});
 test('screen supports macOS legacy and current GNU output; dead sockets are ignored', () => {
   const sessions = parseScreen('There are screens on:\n\t123.dev\t(Attached)\n\t456.train.more\t(10/19/2026 01:00:00 AM)\t(Detached)\n\t789.stale\t(Dead ???)\n');
   assert.deepEqual(sessions, [{ id: '123.dev', name: 'dev', attached: 1 }, { id: '456.train.more', name: 'train.more', attached: 0 }]);
