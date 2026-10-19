@@ -72,6 +72,7 @@ export async function checkTerminalSearch({ frame, page, cli, until, delay, resi
       const close = element.querySelector('.search-close').getBoundingClientRect();
       return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, buttonBottom: close.bottom, parent: { top: content.top, bottom: content.bottom, left: content.left, right: content.right } };
     });
+    await writeFile('.test-results/search-compact-layout.json', JSON.stringify({ height, ...layout }, null, 2));
     assert.ok(layout.top >= layout.parent.top && layout.bottom <= layout.parent.bottom + 1 && layout.left >= layout.parent.left && layout.right <= layout.parent.right + 1, 'Search remains inside a short terminal panel');
     assert.ok(layout.buttonBottom <= layout.parent.bottom + 1, 'Search navigation and close controls remain fully visible in a short panel');
     if (height === 120) await frame.locator('.dock').screenshot({ path: '.test-results/muxdock-search-compact.png' });

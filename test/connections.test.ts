@@ -77,3 +77,20 @@ test('ending a session also removes its retained closed tab and clears the last 
     assert.equal(connections.activeKey, undefined);
   } finally { connections.dispose(); }
 });
+
+test('intentional closes still report the actual client exit without reporting an unexpected exit', { timeout: 10000 }, async () => {
+  const connections = new Connections();
+  const unexpected: unknown[] = [];
+  connections.on('exit', event => unexpected.push(event));
+  try {
+    for (const keepTab of [false, true]) {
+      const tab = connections.connect('tmux', { id: '$1', name: 'work' }, { file: '/bin/sh', args: [] }, '/tmp');
+      const exited = new Promise<string>(resolve => connections.once('clientExit', ({ key }) => resolve(key)));
+      connections.disconnect(tab.key, keepTab);
+      assert.equal(await exited, tab.key);
+      assert.deepEqual(unexpected, []);
+      assert.equal(connections.list().length, keepTab ? 1 : 0);
+      if (keepTab) assert.equal(connections.list()[0].closed, true);
+    }
+  } finally { connections.dispose(); }
+});

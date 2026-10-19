@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.7
+
+- Refresh attachment status after clients actually exit, including closed and retained tabs, and repeat in-flight refreshes when connection state changes so stale hollow indicators clear.
+- Keep the tmux current-window green marker anchored to its own icon and clipped with its row while scrolling the session tree.
+- Keep search navigation and close controls visible when the terminal panel is both narrow and short.
+
 ## 0.0.6
 
 - Prevent handled paste shortcuts from also reaching the editor, fixing duplicate pastes while preserving repeated intentional pastes and native/context-menu paste.

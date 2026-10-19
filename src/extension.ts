@@ -38,6 +38,8 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private readonly connections = new Connections();
   private managers: ManagerInfo[] = [];
   private refreshTask?: Promise<void>;
+  private refreshRequested = false;
+  private forceRefreshRequested = false;
   private timer?: ReturnType<typeof setInterval>;
   private ready = false;
   private disposed = false;
@@ -59,8 +61,8 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       this.post({ type: 'exit', key, name, code });
       this.log.appendLine(`Client exited: ${name}, code=${code}`);
       if (code !== 0) void vscode.window.showWarningMessage(`${name} 的连接已退出（${code}）。请查看终端输出；后台会话状态可在刷新后确认。`);
-      void this.refresh();
     });
+    this.connections.on('clientExit', () => { void this.refresh(); });
   }
   configure() {
     const config = vscode.workspace.getConfiguration('muxdock');
@@ -71,7 +73,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       adapter.configure({ executable, args: Array.isArray(args[id]) ? args[id].filter(value => typeof value === 'string') : [] });
     }
     if (this.timer) clearInterval(this.timer);
-    this.timer = setInterval(() => { if (this.view?.visible) void this.refresh(); }, Math.max(1, config.get('refreshInterval', 3)) * 1000);
+    this.timer = setInterval(() => { if (this.view?.visible && !this.refreshTask) void this.refresh(); }, Math.max(1, config.get('refreshInterval', 3)) * 1000);
     void this.queueConnections(async () => { await this.trimTabs(this.maxTabs()); this.publish(); }).catch(error => this.error(error));
     if (this.view) void this.refresh(true);
   }
@@ -127,21 +129,29 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   }
   async refresh(force = false): Promise<void> {
     if (this.disposed) return;
-    if (this.refreshTask) {
-      await this.refreshTask;
-      if (force) return this.refresh(true);
-      return;
-    }
+    this.refreshRequested = true;
+    this.forceRefreshRequested ||= force;
+    if (this.refreshTask) return this.refreshTask;
     const task = (async () => {
       this.post({ type: 'refreshing', value: true });
-      this.managers = await Promise.all([...this.adapters.values()].map(adapter => adapter.list(force)));
-      this.connections.reconcile(this.managers);
-      this.publish();
+      try {
+        do {
+          const force = this.forceRefreshRequested;
+          this.refreshRequested = false;
+          this.forceRefreshRequested = false;
+          const managers = await Promise.all([...this.adapters.values()].map(adapter => adapter.list(force)));
+          if (this.disposed) return;
+          this.managers = managers;
+          this.connections.reconcile(this.managers);
+          this.publish();
+          // A close, client exit or manual refresh during the query needs a
+          // fresh sample; joining the old query loses that state change.
+        } while (this.refreshRequested);
+      } catch (error) { this.error(error); }
+      finally { this.refreshTask = undefined; this.post({ type: 'refreshing', value: false }); }
     })();
     this.refreshTask = task;
-    try { await task; }
-    catch (error) { this.error(error); }
-    finally { this.refreshTask = undefined; this.post({ type: 'refreshing', value: false }); }
+    return task;
   }
   private resolveSession(managerId: unknown, sessionId: unknown): { adapter: Adapter; session: SessionInfo } {
     if (!isManagerId(managerId) || typeof sessionId !== 'string') throw new Error('无效的会话。');

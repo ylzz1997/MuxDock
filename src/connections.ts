@@ -41,13 +41,15 @@ export class Connections extends EventEmitter {
     });
     process.onExit(({ exitCode }) => {
       this.flush(item);
-      if (!this.entries.has(key)) return;
-      if (item.closed) return;
-      item.closed = true;
-      if (!this.disposed) {
-        this.emit('exit', { key, name: item.name, code: exitCode });
-        this.emit('change');
+      if (this.entries.has(key) && !item.closed) {
+        item.closed = true;
+        if (!this.disposed) {
+          this.emit('exit', { key, name: item.name, code: exitCode });
+          this.emit('change');
+        }
       }
+      // A removed or retained closed tab still owns a client until it exits.
+      if (!this.disposed) this.emit('clientExit', { key });
     });
     this.emit('change');
     return item;
@@ -105,7 +107,10 @@ export class Connections extends EventEmitter {
       this.entries.delete(key);
       if (this.activeKey === key) this.activeKey = keys[index + 1] || keys[index - 1];
     }
-    if (!wasClosed) item.process.kill(); // Only the attached client is owned by MuxDock, never the multiplexer daemon.
+    if (!wasClosed) {
+      item.process.resume(); // Drain a backpressured client so its exit can finish.
+      item.process.kill(); // Only the attached client is owned by MuxDock, never the multiplexer daemon.
+    }
     this.emit('change');
   }
   reconcile(managers: ManagerInfo[]) {

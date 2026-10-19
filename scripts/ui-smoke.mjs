@@ -8,6 +8,7 @@ import { checkLaunchProfiles, checkRestoredLaunchProfile } from './ui-launch.mjs
 import { checkTerminalLinks } from './ui-links.mjs';
 import { checkTerminalPaste } from './ui-paste.mjs';
 import { checkTerminalSearch } from './ui-search.mjs';
+import { checkSessionStatus } from './ui-status.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -33,7 +34,7 @@ await mkdir('.test-results', { recursive: true });
 let executables = {};
 try { executables = JSON.parse(await readFile('.test-tools/executables.json', 'utf8')); } catch { }
 const wrapper = path.join(root, '.test-results/ui-tmux');
-await writeFile(wrapper, `#!/usr/bin/python3\nimport os,sys,json,subprocess\nlog=${JSON.stringify(path.join(root, '.test-results/ui-tmux-calls.jsonl'))}\nwith open(log,'a') as f: f.write(json.dumps(sys.argv[1:])+'\\n')\nif 'list-sessions' in sys.argv:\n r=subprocess.run([${JSON.stringify(tmux)}]+sys.argv[1:],capture_output=True)\n with open(log,'a') as f: f.write(json.dumps({'out':r.stdout.decode(),'err':r.stderr.decode(),'code':r.returncode})+'\\n')\n sys.stdout.buffer.write(r.stdout)\n sys.stderr.buffer.write(r.stderr)\n sys.exit(r.returncode)\nos.execv(${JSON.stringify(tmux)},[${JSON.stringify(tmux)}]+sys.argv[1:])\n`);
+await writeFile(wrapper, `#!/usr/bin/python3\nimport os,sys,json,subprocess,time\nlog=${JSON.stringify(path.join(root, '.test-results/ui-tmux-calls.jsonl'))}\nhold=${JSON.stringify(path.join(root, '.test-results/ui-tmux-hold'))}\nwith open(log,'a') as f: f.write(json.dumps(sys.argv[1:])+'\\n')\nif 'list-sessions' in sys.argv:\n r=subprocess.run([${JSON.stringify(tmux)}]+sys.argv[1:],capture_output=True)\n with open(log,'a') as f: f.write(json.dumps({'out':r.stdout.decode(),'err':r.stderr.decode(),'code':r.returncode})+'\\n')\n try:\n  os.rename(hold,hold+'-captured')\n  time.sleep(1.5)\n except FileNotFoundError:\n  pass\n sys.stdout.buffer.write(r.stdout)\n sys.stderr.buffer.write(r.stderr)\n sys.exit(r.returncode)\nos.execv(${JSON.stringify(tmux)},[${JSON.stringify(tmux)}]+sys.argv[1:])\n`);
 await chmod(wrapper, 0o755);
 executables.tmux = wrapper;
 await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
@@ -103,6 +104,8 @@ try {
     await delay(250);
   };
   const layoutChecks = [];
+  const statusChecks = await checkSessionStatus({ frame, page, cli, until, delay, updateSettings, resizePanel });
+  await writeFile('.test-results/ui-status.json', JSON.stringify({ editor: testEditor, checks: statusChecks }, null, 2));
   for (const height of [420, 300, 220, 170, 120]) {
     await resizePanel(height);
     const layout = await frame.evaluate(() => {
