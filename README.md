@@ -28,7 +28,7 @@ The managers must be installed on the **workspace host**: locally for a local wo
 
 ## Getting started
 
-1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.5.vsix`.
+1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.6.vsix`.
 2. Open the Command Palette, search for **MuxDock**, and open the dock (`muxdock.open`). You can also select the **MuxDock** panel tab.
 3. Click a session in the right-hand tree to attach, or use the `+` beside a manager to create a named session.
 4. Use the terminal icon and shell name in the toolbar to select the default shell for new sessions. It starts with the workspace host's system default shell. Choose **添加命令…** to save and select a command such as `codex`; it runs after shell initialization, and exiting the command returns to the shell. The selection and saved commands are remembered on that host. Use the × beside a saved command to remove it.
@@ -129,7 +129,7 @@ Manager IDs are `tmux`, `zmx`, `screen`, `zellij`, `shpool`, `abduco` and `a4`. 
 - Application copy commands that emit OSC 52 can write to the local clipboard from the active terminal, including remote workspace sessions. For tmux, enable `set -g set-clipboard on` for direct clipboard writes, or `set -g allow-passthrough on` for tmux-wrapped clipboard sequences.
 - Hover over a URL or an application-generated hyperlink (OSC 8) to preview its full destination. Use `Cmd+click` on macOS or `Ctrl+click` on Linux to open it, or use the hover/context-menu actions to open or copy its address. Ordinary clicks and dragging remain available for selecting terminal text.
 - Existing file paths and `file://` links open in the editor, including `src/main.ts:12:3` and `file:///path/main.ts#L12C3`. Relative paths use the current tmux pane directory, shell-reported working directory (OSC 7), or the connection/workspace directory. tmux 3.4+ clients advertise hyperlink support automatically.
-- Use `Cmd+F` on macOS or `Ctrl+F` on Linux to search terminal output. On macOS, `Ctrl+F` is passed to the terminal application.
+- Use `Cmd+F` on macOS or `Ctrl+F` on Linux to open the floating terminal find widget. Toggle case sensitivity, whole-word matching or regular expressions, view match counts and highlights, and use Enter/Shift+Enter, F3/Shift+F3 or the arrow buttons to move between matches. Escape closes find and returns focus to the terminal. Search options are remembered. On macOS, `Ctrl+F` is passed to the terminal application.
 
 ## Troubleshooting
 

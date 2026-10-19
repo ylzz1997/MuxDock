@@ -8,9 +8,10 @@ import './style.css';
 import { MANAGER_IDS, type ConnectionInfo, type ManagerInfo, type SessionInfo, type Snapshot, type WindowInfo } from '../src/model';
 import { decodeTerminalClipboard } from '../src/clipboard';
 import { TerminalLinks } from './links';
+import { TerminalSearch, SEARCH_MATCH_LIMIT, type SearchFlags } from './search';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): Saved | undefined; setState(state: Saved): void };
-interface Saved { width: number; expanded: string[]; filter?: string; filterOpen?: boolean; sidebarCollapsed?: boolean }
+interface Saved { width: number; expanded: string[]; filter?: string; filterOpen?: boolean; sidebarCollapsed?: boolean; searchOptions?: SearchFlags }
 const vscode = acquireVsCodeApi();
 const send = (message: unknown) => vscode.postMessage(message);
 const saved = vscode.getState();
@@ -54,7 +55,6 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `<main class="dock">
 <section class="terminal-area" aria-label="终端">
   <header class="terminal-header"><div class="terminal-heading"></div><div class="terminal-tabs" role="tablist" aria-label="已打开的终端" hidden></div><div class="terminal-actions"></div></header>
-  <div class="search-bar" hidden><input aria-label="搜索终端内容" placeholder="搜索终端内容"><button class="search-next" title="下一个">↓</button><button class="search-close" title="关闭搜索">×</button></div>
   <div class="terminal-content"><div class="welcome"><div class="welcome-symbol"></div><h1>选择一个会话</h1><p>从右侧连接已有会话，<br>或创建一个新的终端会话。</p><button class="primary new-session">新建会话</button><span class="welcome-note">断开连接后，任务继续运行</span></div><div class="terminal-hosts" role="tabpanel" aria-label="终端内容"></div></div>
   <footer class="terminal-footer"><span class="connection-status">未打开会话</span><span class="host-name"></span></footer>
 </section>
@@ -65,7 +65,9 @@ const get = <T extends HTMLElement = HTMLElement>(selector: string) => document.
 const tree = get('.tree');
 const terminalHosts = get('.terminal-hosts');
 const filter = get<HTMLInputElement>('.filter');
-const searchInput = get<HTMLInputElement>('.search-bar input');
+const searchWidget = new TerminalSearch(get('.terminal-content'), saved?.searchOptions, () => persist(), () => {
+  if (current()) current()!.terminal.focus(); else get('[aria-label="搜索终端"]').focus();
+});
 const sidebar = get('.sidebar');
 const splitter = get('.splitter');
 const tabList = get('.terminal-tabs');
@@ -120,7 +122,7 @@ get('.terminal-actions').append(
   launchButton,
   sidebarToggle
 );
-function persist() { vscode.setState({ width, expanded: [...expanded], filter: filter.value, filterOpen, sidebarCollapsed }); }
+function persist() { vscode.setState({ width, expanded: [...expanded], filter: filter.value, filterOpen, sidebarCollapsed, searchOptions: searchWidget.options }); }
 function updateSidebarVisibility() {
   sidebar.hidden = sidebarCollapsed; splitter.hidden = sidebarCollapsed;
   const label = sidebarCollapsed ? '展开会话面板' : '收起会话面板';
@@ -179,7 +181,7 @@ function ensureTerminal(info: ConnectionInfo) {
   terminalHosts.append(element);
   // Unicode11Addon needs the Unicode API so emoji widths match modern backends.
   const terminal = new Terminal({ ...snapshot.appearance, cursorBlink: true, lineHeight: 1.16, theme: theme(), allowProposedApi: true, macOptionIsMeta: true, macOptionClickForcesSelection: true });
-  const fit = new FitAddon(); const search = new SearchAddon();
+  const fit = new FitAddon(); const search = new SearchAddon({ highlightLimit: SEARCH_MATCH_LIMIT });
   terminal.loadAddon(new Unicode11Addon()); terminal.unicode.activeVersion = '11';
   terminal.loadAddon(fit); terminal.loadAddon(search);
   terminal.open(element);
@@ -188,6 +190,7 @@ function ensureTerminal(info: ConnectionInfo) {
   terminal.loadAddon(new WebLinksAddon(links.activate, { hover: links.hover, leave: links.leave }));
   terminal.options.disableStdin = !!info.closed;
   entry = { terminal, fit, search, links, element, seq: 0, info, closed: !!info.closed, replaying: false }; terminals.set(info.key, entry);
+  searchWidget.register(info.key, terminal, search);
   terminal.parser.registerOscHandler(7, url => { send({ type: 'terminalCwd', key: info.key, url }); return true; });
   terminal.parser.registerOscHandler(52, data => {
     if (info.key === displayedKey && !entry!.closed && !entry!.replaying) {
@@ -200,11 +203,12 @@ function ensureTerminal(info: ConnectionInfo) {
   terminal.onResize(({ cols, rows }) => send({ type: 'resize', key: info.key, cols, rows }));
   terminal.attachCustomKeyEventHandler(event => {
     if (event.type !== 'keydown') return true;
+    const consume = (action: () => void) => { event.preventDefault(); event.stopPropagation(); action(); return false; };
+    if (searchWidget.handleKey(event)) return false;
     const shortcut = event.metaKey || (event.ctrlKey && event.shiftKey);
-    if ((/Mac/i.test(navigator.platform) ? event.metaKey : event.ctrlKey) && event.key.toLowerCase() === 'f') { event.preventDefault(); openSearch(); return false; }
-    if ((shortcut || (event.ctrlKey && event.key.toLowerCase() === 'c' && terminal.hasSelection())) && event.key.toLowerCase() === 'c') { event.preventDefault(); const value = terminal.getSelection(); if (value) send({ type: 'copy', text: value }); return false; }
-    if (shortcut && event.key.toLowerCase() === 'v') { event.preventDefault(); send({ type: 'paste', key: info.key }); return false; }
-    if (event.metaKey && event.key.toLowerCase() === 'a') { event.preventDefault(); terminal.selectAll(); return false; }
+    if ((shortcut || (event.ctrlKey && event.key.toLowerCase() === 'c' && terminal.hasSelection())) && event.key.toLowerCase() === 'c') return consume(() => { const value = terminal.getSelection(); if (value) send({ type: 'copy', text: value }); });
+    if (shortcut && event.key.toLowerCase() === 'v') return consume(() => send({ type: 'paste', key: info.key }));
+    if (event.metaKey && event.key.toLowerCase() === 'a') return consume(() => terminal.selectAll());
     return true;
   });
   element.addEventListener('contextmenu', event => {
@@ -221,8 +225,9 @@ function ensureTerminal(info: ConnectionInfo) {
 }
 function updateTerminal() {
   for (const info of snapshot.connections) ensureTerminal(info);
-  for (const [key, entry] of terminals) if (!snapshot.connections.some(info => info.key === key)) { entry.links.dispose(); entry.terminal.dispose(); entry.element.remove(); terminals.delete(key); }
+  for (const [key, entry] of terminals) if (!snapshot.connections.some(info => info.key === key)) { searchWidget.unregister(key); entry.links.dispose(); entry.terminal.dispose(); entry.element.remove(); terminals.delete(key); }
   displayedKey = snapshot.activeKey;
+  searchWidget.setActive(displayedKey);
   const entry = current();
   for (const [key, terminal] of terminals) {
     terminal.element.hidden = key !== displayedKey;
@@ -293,12 +298,7 @@ function renderTabs() {
   }
   if (visible && oldActive !== snapshot.activeKey) activeTab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
-function openSearch() { get('.search-bar').hidden = false; searchInput.focus(); searchInput.select(); fitCurrent(); }
-function closeSearch() { get('.search-bar').hidden = true; current()?.search.clearDecorations(); current()?.terminal.focus(); fitCurrent(); }
-searchInput.addEventListener('input', () => current()?.search.findNext(searchInput.value, { incremental: true }));
-searchInput.addEventListener('keydown', event => { if (event.key === 'Escape') closeSearch(); if (event.key === 'Enter') event.shiftKey ? current()?.search.findPrevious(searchInput.value) : current()?.search.findNext(searchInput.value); });
-get('.search-next').addEventListener('click', () => current()?.search.findNext(searchInput.value));
-get('.search-close').addEventListener('click', closeSearch);
+function openSearch() { searchWidget.open(); }
 
 type MenuItem = { label: string; action: () => void; danger?: boolean; disabled?: boolean; checked?: boolean; detail?: string; id?: string; image?: string; separator?: boolean; remove?: () => void };
 let menu: HTMLElement | undefined;
@@ -462,7 +462,7 @@ window.addEventListener('message', event => {
     requestAnimationFrame(() => { if (generation === focusGeneration && message.key === snapshot.activeKey) current()?.terminal.focus(); });
   }
   else if (message.type === 'visible') requestAnimationFrame(fitCurrent);
-  else if (message.type === 'paste') terminals.get(message.key)?.terminal.paste(message.text);
+  else if (message.type === 'paste' && message.key === displayedKey) { const entry = terminals.get(message.key); if (entry && !entry.closed) entry.terminal.paste(message.text); }
   else if (message.type === 'resolvedLinks') terminals.get(message.key)?.links.receive(message);
   else if (message.type === 'refreshing') get('[aria-label="刷新"]').classList.toggle('spinning', message.value);
   else if (message.type === 'error') get('.connection-status').textContent = message.message;

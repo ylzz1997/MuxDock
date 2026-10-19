@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.6
+
+- Prevent handled paste shortcuts from also reaching the editor, fixing duplicate pastes while preserving repeated intentional pastes and native/context-menu paste.
+- Replace the terminal search strip with a compact floating find widget, including case/whole-word/regex options, match counts and highlights, previous/next navigation, validation and keyboard shortcuts.
+
 ## 0.0.5
 
 - Support Cmd/Ctrl-click and destination previews for plain URLs, OSC 8 hyperlinks and existing file paths with line/column navigation. Add link copying actions and preserve terminal text selection and application mouse handling.

@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import { checkApplicationClipboard, checkSessionScroll, checkTerminalClipboard } from './ui-regressions.mjs';
 import { checkLaunchProfiles, checkRestoredLaunchProfile } from './ui-launch.mjs';
 import { checkTerminalLinks } from './ui-links.mjs';
+import { checkTerminalPaste } from './ui-paste.mjs';
+import { checkTerminalSearch } from './ui-search.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -162,6 +164,10 @@ try {
   assert.equal(rendering.colors.ANSI_RGB.foreground, 'rgb(18, 171, 205)');
   const linkChecks = await checkTerminalLinks({ frame, page, cli, until, delay });
   await writeFile('.test-results/ui-links.json', JSON.stringify({ editor: testEditor, checks: linkChecks }, null, 2));
+  const pasteChecks = await checkTerminalPaste({ frame, page, cli, until, delay });
+  await writeFile('.test-results/ui-paste.json', JSON.stringify({ editor: testEditor, checks: pasteChecks }, null, 2));
+  const searchChecks = await checkTerminalSearch({ frame, page, cli, until, delay, resizePanel });
+  await writeFile('.test-results/ui-search.json', JSON.stringify({ editor: testEditor, checks: searchChecks }, null, 2));
   const scrollChecks = await checkSessionScroll({ frame, page, cli, until, delay, updateSettings });
   const clipboardChecks = await checkTerminalClipboard({ frame, page, cli, until, delay });
   const applicationClipboardChecks = await checkApplicationClipboard({ frame, page, cli, until, delay });
