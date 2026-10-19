@@ -27,7 +27,7 @@ The managers must be installed on the **workspace host**: locally for a local wo
 
 ## Getting started
 
-1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.1.vsix`.
+1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.2.vsix`.
 2. Open the Command Palette, search for **MuxDock**, and open the dock (`muxdock.open`). You can also select the **MuxDock** panel tab.
 3. Click a session in the right-hand tree to attach, or use the `+` beside a manager to create a named session.
 4. Expand a tmux session to browse its windows. Click a window to select it, or use its context menu for window actions.
