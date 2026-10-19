@@ -1,5 +1,6 @@
 import type { Command, ManagerId, ManagerInfo, SessionInfo, WindowInfo } from './model';
 import { findExecutable, requireSuccess, run, type Runner } from './runner';
+import { shellQuote } from './launch';
 
 export const LABELS: Record<ManagerId, string> = { tmux: 'tmux', zmx: 'zmx', screen: 'screen', zellij: 'Zellij', shpool: 'shpool', abduco: 'abduco', a4: 'a4' };
 export const stripAnsi = (text: string) => text.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
@@ -136,12 +137,14 @@ export class Adapter {
     };
     return this.command(commands[this.id]);
   }
-  create(name: string, shell: string): Command {
+  create(name: string, shell: string, environmentShell = shell): Command {
     const commands: Record<ManagerId, string[]> = {
-      tmux: ['new-session', '-s', name], zmx: ['attach', name], screen: ['-S', name, shell, '-l'],
-      zellij: ['--session', name], shpool: ['attach', '--dir', '.', name], abduco: ['-c', name, shell, '-l'], a4: ['-a', name]
+      tmux: ['new-session', '-s', name, shell, '-l'], zmx: ['attach', name, shell, '-l'], screen: ['-S', name, shell, '-l'],
+      zellij: ['--session', name, 'options', '--default-shell', shell],
+      shpool: ['attach', '--dir', '.', '--cmd', ['/usr/bin/env', `SHELL=${shell}`, shell, '-l'].map(shellQuote).join(' '), name],
+      abduco: ['-c', name, shell, '-l'], a4: ['-a', name]
     };
-    return this.command(commands[this.id]);
+    return { ...this.command(commands[this.id]), env: { SHELL: this.id === 'a4' ? shell : environmentShell } };
   }
   async rename(session: SessionInfo, name: string): Promise<void> {
     if (!this.capabilities.rename) throw new Error('此管理器不提供会话重命名。');

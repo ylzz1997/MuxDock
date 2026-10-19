@@ -20,6 +20,7 @@ export interface ManagerInfo {
 export interface Command { file: string; args: string[]; env?: Record<string, string> }
 export interface ConnectionInfo { key: string; manager: ManagerId; sessionId: string; name: string; closed?: boolean }
 export interface Appearance { fontSize: number; fontFamily: string; scrollback: number }
+export interface LaunchProfile { id: string; name: string; detail: string; kind: 'shell' | 'command' }
 export interface Snapshot {
   managers: ManagerInfo[];
   connections: ConnectionInfo[];
@@ -30,6 +31,8 @@ export interface Snapshot {
   maxTabs: number;
   host: string;
   appearance: Appearance;
+  launchProfiles: LaunchProfile[];
+  selectedLaunchProfile: string;
 }
 export const connectionKey = (manager: ManagerId, sessionId: string) => `${manager}:${sessionId}`;
 export function isManagerId(value: unknown): value is ManagerId { return MANAGER_IDS.includes(value as ManagerId); }

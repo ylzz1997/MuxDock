@@ -2,10 +2,11 @@ import * as vscode from 'vscode';
 import os from 'node:os';
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { Adapter, LABELS } from './adapters';
 import { Connections } from './connections';
 import { MAX_TERMINAL_CLIPBOARD_BYTES } from './clipboard';
+import { discoverShells, launchExecutable, launchProfiles, readLaunchSettings, systemShell, validateLaunchCommand, type LaunchSettings } from './launch';
 import { MANAGER_IDS, isManagerId, validateName, type ManagerInfo, type ManagerId, type SessionInfo, type Snapshot, type WindowInfo } from './model';
 
 let activeProvider: DockProvider | undefined;
@@ -40,7 +41,13 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private busy = false;
   private connectionTask: Promise<unknown> = Promise.resolve();
   private activationRevision = 0;
+  private readonly defaultShell = systemShell();
+  private shells = [this.defaultShell];
+  private launchSettings: LaunchSettings;
+  private readonly launchTask: Promise<void>;
   constructor(private readonly context: vscode.ExtensionContext, private readonly log: vscode.OutputChannel) {
+    this.launchSettings = readLaunchSettings(context.globalState.get('launchSettings'));
+    this.launchTask = discoverShells(this.defaultShell).then(shells => { this.shells = shells; this.publish(); }).catch(error => log.appendLine(`Shell discovery: ${error}`));
     for (const id of MANAGER_IDS) this.adapters.set(id, new Adapter(id));
     this.configure();
     this.connections.on('output', message => this.post(message));
@@ -89,7 +96,8 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       managers: this.managers, connections: this.connections.list(), activeKey: this.connections.activeKey,
       showUnavailable: config.get('showUnavailable', false), host: vscode.env.remoteName ? `${vscode.env.remoteName} · ${os.hostname()}` : os.hostname(),
       visibleManagers: this.visibleManagers(), showTabs: config.get('showTabs', true), maxTabs: this.maxTabs(),
-      appearance: { fontSize: config.get('fontSize', 14), fontFamily: config.get<string>('fontFamily') || terminal.get<string>('fontFamily') || 'Menlo, Monaco, monospace', scrollback: config.get('scrollback', 10000) }
+      appearance: { fontSize: config.get('fontSize', 14), fontFamily: config.get<string>('fontFamily') || terminal.get<string>('fontFamily') || 'Menlo, Monaco, monospace', scrollback: config.get('scrollback', 10000) },
+      ...launchProfiles(this.launchSettings, this.shells, this.defaultShell)
     };
   }
   private publish() { this.post({ type: 'snapshot', state: this.snapshot() }); }
@@ -158,16 +166,43 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       if (managerId === 'shpool' && session.attached && (!existing || existing.closed)) throw new Error('shpool 会话已有客户端连接。请先在原终端断开，再在这里连接。');
       if (existing?.closed) this.connections.disconnect(existing.key);
       if (!existing || existing.closed) await this.trimTabs(this.maxTabs() - 1);
-      const shell = process.env.SHELL && path.isAbsolute(process.env.SHELL) ? process.env.SHELL : '/bin/sh';
+      await this.launchTask;
+      const shell = this.launchSettings.shell && this.shells.includes(this.launchSettings.shell) ? this.launchSettings.shell : this.defaultShell;
+      const command = this.launchSettings.commands.find(item => item.id === this.launchSettings.commandId)?.command;
+      const executable = create ? await launchExecutable(shell, command, path.join(this.context.globalStorageUri.fsPath, 'launchers')) : shell;
       const cwd = await this.cwd();
       if (!create && revision !== this.activationRevision) return;
       const previous = this.connections.activeKey;
-      const connection = this.connections.connect(managerId, session, create ? adapter.create(session.name, shell) : adapter.attach(session), cwd);
+      const connection = this.connections.connect(managerId, session, create ? adapter.create(session.name, executable, shell) : adapter.attach(session), cwd);
       if (revision !== this.activationRevision && previous) this.connections.select(previous);
       this.publish();
       if (revision === this.activationRevision) this.post({ type: 'focus', key: connection.key });
       setTimeout(() => { if (!this.disposed) void this.refresh(); }, 400);
     });
+  }
+  private async saveLaunchSettings(settings: LaunchSettings) {
+    this.launchSettings = settings;
+    await this.context.globalState.update('launchSettings', settings);
+    this.publish();
+  }
+  private async selectLaunchProfile(id: string) {
+    await this.launchTask;
+    const profile = this.snapshot().launchProfiles.find(profile => profile.id === id);
+    if (!profile) return;
+    if (profile.kind === 'shell') await this.saveLaunchSettings({ ...this.launchSettings, shell: id === 'system' ? undefined : id.slice(6), commandId: undefined });
+    else await this.saveLaunchSettings({ ...this.launchSettings, commandId: id.slice(8) });
+  }
+  private async addLaunchCommand() {
+    if (this.busy) return;
+    this.busy = true;
+    try {
+      const value = await vscode.window.showInputBox({ title: '添加启动命令', prompt: '新建会话时在所选 shell 中执行；退出命令后可继续使用 shell。', placeHolder: 'codex', ignoreFocusOut: true, validateInput: validateLaunchCommand });
+      if (!value) return;
+      const command = value.trim();
+      const existing = this.launchSettings.commands.find(item => item.command === command);
+      const item = existing || { id: randomUUID(), command };
+      await this.saveLaunchSettings({ ...this.launchSettings, commands: existing ? this.launchSettings.commands : [...this.launchSettings.commands, item], commandId: item.id });
+    } finally { this.busy = false; }
   }
   async newSession(preferred?: ManagerId) {
     if (this.busy) return;
@@ -199,6 +234,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     if (!message || typeof message !== 'object' || !('type' in message)) return;
     const m = message as Record<string, unknown>;
     if (m.type === 'ready') {
+      await this.launchTask;
       this.ready = true;
       this.connections.setDeliveryEnabled(true);
       this.publish();
@@ -211,6 +247,13 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     if (m.type === 'resize' && typeof m.key === 'string') { this.connections.resize(m.key, Number(m.cols), Number(m.rows)); return; }
     if (m.type === 'refresh') { await this.refresh(true); return; }
     if (m.type === 'newSession') { await this.newSession(isManagerId(m.manager) ? m.manager : undefined); return; }
+    if (m.type === 'selectLaunchProfile' && typeof m.id === 'string') { await this.selectLaunchProfile(m.id); return; }
+    if (m.type === 'addLaunchCommand') { await this.addLaunchCommand(); return; }
+    if (m.type === 'removeLaunchCommand' && typeof m.id === 'string' && m.id.startsWith('command:')) {
+      const id = m.id.slice(8);
+      await this.saveLaunchSettings({ ...this.launchSettings, commands: this.launchSettings.commands.filter(item => item.id !== id), commandId: this.launchSettings.commandId === id ? undefined : this.launchSettings.commandId });
+      return;
+    }
     if (m.type === 'settings') { await vscode.commands.executeCommand('muxdock.settings'); return; }
     if (m.type === 'showUnavailable') {
       await vscode.workspace.getConfiguration('muxdock').update('showUnavailable', !!m.value, vscode.ConfigurationTarget.Global);

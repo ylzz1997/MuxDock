@@ -8,6 +8,7 @@ import { Adapter } from '../src/adapters';
 import { Connections } from '../src/connections';
 import { MANAGER_IDS, type ManagerId, type Command, type SessionInfo } from '../src/model';
 import { run, cleanEnvironment } from '../src/runner';
+import { launchExecutable, shellQuote } from '../src/launch';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 async function until<T>(fn: () => Promise<T | undefined | false>, description: string, timeout = 20000): Promise<T> {
@@ -47,10 +48,13 @@ for (const id of MANAGER_IDS.filter(id => !process.env.MUXDOCK_TEST_MANAGERS || 
       daemon = spawn(command.file, command.args, { env, stdio: 'ignore' });
       await until(async () => { try { await readFile(`${root}/shpool.sock`); } catch (error: any) { return error.code !== 'ENOENT'; } return true; }, 'shpool daemon');
     }
-    const command = adapter.create(name, '/bin/sh'); command.env = env;
+    const startupFile = `${root}/startup-${id}.txt`;
+    const executable = await launchExecutable('/bin/sh', `printf '%s\\n' '${id}' >> ${shellQuote(startupFile)}`, `${root}/launchers`);
+    const command = adapter.create(name, executable, '/bin/sh'); command.env = { ...env, ...command.env };
     runtime.connect(id, { id: name, name }, command, root);
     created = await until(async () => { const manager = await adapter.list(); if (manager.error) throw new Error(manager.error); return manager.sessions.find(session => session.name === name); }, `${id} create`);
     runtime.reconcile([await adapter.list()]);
+    await until(async () => { try { return (await readFile(startupFile, 'utf8')) === `${id}\n`; } catch { return false; } }, `${id} startup command executed once`);
     if (id === 'zmx') await sleep(400);
     else await until(async () => /(?:sh-[\d.]+\$|\$ |# )/.test(screen()), `${id} interactive shell ready`);
     if (id === 'zellij') {
@@ -85,10 +89,11 @@ for (const id of MANAGER_IDS.filter(id => !process.env.MUXDOCK_TEST_MANAGERS || 
     await sleep(1200);
     runtime.input(runtime.activeKey!, `printf 'MD_BACK_%s\\n' '${id}'\r`);
     await until(async () => screen().includes(`MD_BACK_${id}`), `${id} reattach`);
+    assert.equal(await readFile(startupFile, 'utf8'), `${id}\n`, `${id} reconnect must not rerun startup commands`);
     if (adapter.capabilities.kill) await adapter.kill(afterDetach);
     else runtime.input(runtime.activeKey!, 'exit\r');
     await until(async () => !(await adapter.list()).sessions.some(session => session.id === afterDetach.id), `${id} cleanup`);
-    results.push({ id, status: 'PASS', checks: ['create', 'shell input/output', 'detach persistence', 'reattach', 'cleanup', ...(id === 'tmux' ? ['window create/rename/select', 'session rename'] : [])] });
+    results.push({ id, status: 'PASS', checks: ['create with selected shell', 'startup command runs once', 'shell remains usable after startup command', 'shell input/output', 'detach persistence', 'reattach does not rerun command', 'cleanup', ...(id === 'tmux' ? ['window create/rename/select', 'session rename'] : [])] });
     console.log(`${id}: PASS`);
   } catch (error) {
     failed = true;

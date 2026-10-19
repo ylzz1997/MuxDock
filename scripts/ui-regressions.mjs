@@ -199,9 +199,14 @@ export async function checkSessionScroll({ frame, page, cli, until, delay, updat
     await until(async () => await frame.getByRole('tab', { name: 'my-project (tmux)', exact: true }).getAttribute('aria-selected') === 'true');
     assert.ok(Math.abs(await scrollTop() - before) <= 1, 'Switching tabs must preserve tree scroll');
     checks.push('switching terminal tabs preserves tree scroll');
+    await until(async () => frame.evaluate(() => document.activeElement?.classList.contains('xterm-helper-textarea')));
     await last.focus();
+    const previousRow = await last.evaluate(element => {
+      const rows = [...document.querySelectorAll('.tree-row')];
+      return rows[rows.indexOf(element) - 1].dataset.node;
+    });
     await page.keyboard.press('ArrowUp');
-    await until(async () => frame.evaluate(name => document.activeElement?.getAttribute('aria-label') === name, names.at(-2)));
+    await until(async () => frame.evaluate(node => document.activeElement?.getAttribute('data-node') === node, previousRow));
     checks.push('tree keyboard navigation still works');
   } finally {
     const close = frame.getByRole('button', { name: `关闭标签页 ${names.at(-1)} (tmux)`, exact: true });

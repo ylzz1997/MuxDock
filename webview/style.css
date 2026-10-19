@@ -26,6 +26,9 @@ button:focus-visible, [tabindex]:focus-visible { outline: 1px solid var(--vscode
 .terminal-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .manager-badge { font-size: 10px; line-height: 17px; padding: 0 5px; color: var(--vscode-descriptionForeground); border: 1px solid var(--vscode-panel-border, #333); border-radius: 3px; }
 .terminal-actions, .sidebar-actions { display: flex; align-items: center; gap: 2px; }
+.launch-button { display: inline-flex; align-items: center; gap: 6px; min-width: 30px; max-width: 145px; height: 26px; padding: 3px 6px; border-radius: 4px; font-size: 12px; }
+.launch-button:hover, .launch-button[aria-expanded="true"] { background: var(--vscode-toolbar-hoverBackground, #ffffff16); }
+.launch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .icon { display: inline-flex; flex-shrink: 0; width: 16px; height: 16px; align-items: center; justify-content: center; }
 .icon svg { width: 16px; height: 16px; }
 .icon-button { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; padding: 3px; border-radius: 4px; flex-shrink: 0; }
@@ -110,8 +113,16 @@ input:focus { border-color: var(--vscode-focusBorder, #007fd4); }
 .search-bar input { flex: 1; padding: 3px 6px; }
 .search-bar button { width: 24px; height: 24px; border-radius: 3px; }
 .search-bar button:hover { background: var(--vscode-toolbar-hoverBackground); }
-.context-menu { position: fixed; z-index: 100; min-width: 170px; max-width: 300px; padding: 4px; border: 1px solid var(--vscode-menu-border, #454545); border-radius: 5px; background: var(--vscode-menu-background, #252526); color: var(--vscode-menu-foreground, #ccc); box-shadow: 0 3px 12px var(--vscode-widget-shadow, #0006); }
-.context-menu button { display: block; width: 100%; text-align: left; padding: 6px 12px; font-size: 12px; border-radius: 3px; }
+.context-menu { position: fixed; z-index: 100; min-width: 170px; max-width: min(320px, calc(100vw - 8px)); max-height: calc(100vh - 8px); overflow-y: auto; padding: 4px; border: 1px solid var(--vscode-menu-border, #454545); border-radius: 5px; background: var(--vscode-menu-background, #252526); color: var(--vscode-menu-foreground, #ccc); box-shadow: 0 3px 12px var(--vscode-widget-shadow, #0006); }
+.context-menu .menu-item { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; text-align: left; padding: 6px 12px; font-size: 12px; border-radius: 3px; }
+.launch-menu { min-width: min(260px, calc(100vw - 8px)); }
+.menu-row { display: flex; align-items: center; }
+.menu-label { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.menu-label > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-detail { color: var(--vscode-descriptionForeground); font-size: 10px; }
+[aria-checked="false"] > .menu-check { visibility: hidden; }
+.menu-separator { border-top: 1px solid var(--vscode-menu-separatorBackground, #454545); margin: 4px; }
+.context-menu .menu-remove { width: 24px; height: 24px; flex-shrink: 0; margin-right: 4px; }
 .context-menu button:hover:not(:disabled), .context-menu button:focus-visible { background: var(--vscode-menu-selectionBackground, #04395e); color: var(--vscode-menu-selectionForeground, white); }
 .context-menu .danger { color: var(--vscode-errorForeground, #f48771); }
 @keyframes spin { to { transform: rotate(360deg); } }

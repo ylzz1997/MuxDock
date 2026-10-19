@@ -2,6 +2,7 @@
 
 ## 0.0.4
 
+- Replace the toolbar disconnect button with a default shell/startup command picker. Discover installed shells, start with the system default, and remember custom commands for new sessions across all seven managers.
 - Handle OSC 52 clipboard writes from terminal applications so application-managed copy shortcuts work in VS Code and Cursor.
 - Ignore clipboard requests from background or closed terminals and history replay, and reject clipboard reads and malformed payloads.
 

@@ -16,7 +16,7 @@ const saved = vscode.getState();
 const expanded = new Set(saved?.expanded || ['tmux', 'zmx', 'screen', 'zellij', 'shpool', 'abduco', 'a4']);
 let width = saved?.width || 258;
 let sidebarCollapsed = saved?.sidebarCollapsed === true;
-let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 14, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000 } };
+let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 14, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000 }, launchProfiles: [], selectedLaunchProfile: 'system' };
 let displayedKey: string | undefined;
 let lastActiveTarget: string | undefined;
 let focusGeneration = 0;
@@ -27,7 +27,6 @@ const paths: Record<string, string> = {
   search: '<circle cx="7" cy="7" r="4"/><path d="m10 10 4 4"/>', close: '<path d="m4 4 8 8M12 4l-8 8"/>',
   more: '<circle cx="3" cy="8" r=".7"/><circle cx="8" cy="8" r=".7"/><circle cx="13" cy="8" r=".7"/>',
   copy: '<rect x="5" y="5" width="8" height="9" rx="1"/><path d="M10 5V2H2v9h3"/>',
-  disconnect: '<path d="m3 3 10 10M5 2v4m6-4v4M4 6h8v2a4 4 0 0 1-4 4v2"/>',
   window: '<rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12"/>',
   layers: '<path d="m8 2 6 3-6 3-6-3 6-3ZM2 8l6 3 6-3M2 11l6 3 6-3"/>',
   check: '<path d="m3 8 3 3 7-7"/>', gear: '<path d="M8 1v2m0 10v2M1 8h2m10 0h2M3 3l1 1m8 8 1 1M3 13l1-1m8-8 1-1"/><circle cx="8" cy="8" r="4"/><circle cx="8" cy="8" r="1"/>',
@@ -95,10 +94,29 @@ const sidebarToggle = button('收起会话面板', 'collapseSidebar', () => {
   sidebarToggle.focus();
 }, 'icon-button sidebar-toggle');
 sidebarToggle.setAttribute('aria-controls', 'session-sidebar');
+const launchButton = button('选择新会话默认启动项', 'terminal', () => {
+  if (menu?.classList.contains('launch-menu')) { closeMenu(); return; }
+  const rect = launchButton.getBoundingClientRect();
+  showMenu(rect.left, rect.bottom, [
+    ...snapshot.launchProfiles.map(profile => ({
+      label: profile.name, detail: profile.detail, checked: profile.id === snapshot.selectedLaunchProfile, id: profile.id,
+      action: () => send({ type: 'selectLaunchProfile', id: profile.id }),
+      ...(profile.kind === 'command' ? { remove: () => send({ type: 'removeLaunchCommand', id: profile.id }) } : {})
+    })),
+    { label: '添加命令…', image: 'plus', separator: true, action: () => send({ type: 'addLaunchCommand' }) }
+  ]);
+  menu!.classList.add('launch-menu'); menu!.setAttribute('aria-label', '新会话默认启动项');
+  menu!.style.maxHeight = `${Math.max(20, window.innerHeight - rect.bottom - 4)}px`;
+  positionMenu(rect.left, rect.bottom);
+  const selected = menu!.querySelector<HTMLElement>('[aria-checked="true"]');
+  if (selected) menu!.scrollTop = Math.max(0, selected.offsetTop - menu!.clientHeight / 2 + selected.offsetHeight / 2);
+  launchButton.setAttribute('aria-expanded', 'true');
+}, 'launch-button');
+launchButton.setAttribute('aria-haspopup', 'menu'); launchButton.setAttribute('aria-expanded', 'false');
 get('.terminal-actions').append(
   button('搜索终端', 'search', () => openSearch()),
   button('复制选中内容', 'copy', () => { const value = current()?.terminal.getSelection(); if (value) send({ type: 'copy', text: value }); }),
-  button('断开连接，保留后台会话', 'disconnect', () => { if (displayedKey) send({ type: 'disconnect', key: displayedKey }); }),
+  launchButton,
   sidebarToggle
 );
 function persist() { vscode.setState({ width, expanded: [...expanded], filter: filter.value, filterOpen, sidebarCollapsed }); }
@@ -211,7 +229,10 @@ function updateTerminal() {
   get('.connection-status').textContent = entry ? entry.closed ? '连接已关闭' : '已连接' : '未打开会话';
   get('.connection-status').classList.toggle('connected', !!entry && !entry.closed);
   get('.host-name').textContent = snapshot.host;
-  get<HTMLButtonElement>('[aria-label="断开连接，保留后台会话"]').disabled = !entry || entry.closed;
+  const profile = snapshot.launchProfiles.find(profile => profile.id === snapshot.selectedLaunchProfile);
+  if (launchButton.dataset.profile !== snapshot.selectedLaunchProfile || launchButton.querySelector('.launch-name')?.textContent !== (profile?.name || 'shell')) launchButton.replaceChildren(icon('terminal'), text('span', profile?.name || 'shell', 'launch-name'));
+  launchButton.title = `新建会话默认启动项：${profile?.name || 'shell'}${profile ? `（${profile.detail}）` : ''}`;
+  launchButton.dataset.profile = snapshot.selectedLaunchProfile;
   for (const terminal of terminals.values()) { Object.assign(terminal.terminal.options, snapshot.appearance); }
   requestAnimationFrame(fitCurrent);
 }
@@ -272,26 +293,45 @@ searchInput.addEventListener('keydown', event => { if (event.key === 'Escape') c
 get('.search-next').addEventListener('click', () => current()?.search.findNext(searchInput.value));
 get('.search-close').addEventListener('click', closeSearch);
 
-type MenuItem = { label: string; action: () => void; danger?: boolean; disabled?: boolean };
+type MenuItem = { label: string; action: () => void; danger?: boolean; disabled?: boolean; checked?: boolean; detail?: string; id?: string; image?: string; separator?: boolean; remove?: () => void };
 let menu: HTMLElement | undefined;
-function closeMenu() { menu?.remove(); menu = undefined; }
+function closeMenu() { menu?.remove(); menu = undefined; launchButton.setAttribute('aria-expanded', 'false'); }
+function positionMenu(x: number, y: number) {
+  if (!menu) return;
+  menu.style.left = `${Math.max(4, Math.min(x, window.innerWidth - menu.offsetWidth - 4))}px`;
+  menu.style.top = `${Math.max(4, Math.min(y, window.innerHeight - menu.offsetHeight - 4))}px`;
+}
 function showMenu(x: number, y: number, items: MenuItem[]) {
   closeMenu(); menu = document.createElement('div'); menu.className = 'context-menu'; menu.setAttribute('role', 'menu');
   for (const item of items) {
-    const row = document.createElement('button'); row.setAttribute('role', 'menuitem'); row.textContent = item.label; row.disabled = !!item.disabled; row.classList.toggle('danger', !!item.danger);
-    row.addEventListener('click', () => { closeMenu(); item.action(); }); menu.append(row);
+    if (item.separator) { const separator = text('div', '', 'menu-separator'); separator.setAttribute('role', 'separator'); menu.append(separator); }
+    const wrapper = text('div', '', 'menu-row');
+    const row = document.createElement('button'); row.className = 'menu-item'; row.setAttribute('role', item.checked === undefined ? 'menuitem' : 'menuitemradio'); row.setAttribute('aria-label', item.label);
+    if (item.checked !== undefined) { row.setAttribute('aria-checked', String(item.checked)); const check = icon('check'); check.classList.add('menu-check'); row.append(check); }
+    else if (item.image) row.append(icon(item.image));
+    if (item.id) row.dataset.profile = item.id;
+    const label = text('span', '', 'menu-label'); label.append(text('span', item.label)); if (item.detail) label.append(text('span', item.detail, 'menu-detail')); row.append(label);
+    row.disabled = !!item.disabled; row.classList.toggle('danger', !!item.danger);
+    row.addEventListener('click', () => { closeMenu(); item.action(); }); wrapper.append(row);
+    if (item.remove) {
+      wrapper.append(button(`删除命令 ${item.label}`, 'close', () => { closeMenu(); item.remove!(); }, 'menu-remove icon-button'));
+      row.addEventListener('keydown', event => { if (event.key === 'Delete') { event.preventDefault(); event.stopPropagation(); closeMenu(); item.remove!(); } });
+    }
+    menu.append(wrapper);
   }
   document.body.append(menu);
-  menu.style.left = `${Math.max(4, Math.min(x, window.innerWidth - menu.offsetWidth - 4))}px`;
-  menu.style.top = `${Math.max(4, Math.min(y, window.innerHeight - menu.offsetHeight - 4))}px`;
-  menu.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+  positionMenu(x, y);
+  const selected = menu.querySelector<HTMLButtonElement>('[aria-checked="true"]') || menu.querySelector<HTMLButtonElement>('.menu-item:not(:disabled)');
+  selected?.focus({ preventScroll: true });
+  if (selected) menu.scrollTop = Math.max(0, selected.offsetTop - menu.clientHeight / 2 + selected.offsetHeight / 2);
 }
-document.addEventListener('pointerdown', event => { if (menu && !menu.contains(event.target as Node)) closeMenu(); });
+document.addEventListener('pointerdown', event => { if (menu && !menu.contains(event.target as Node) && !(menu.classList.contains('launch-menu') && launchButton.contains(event.target as Node))) closeMenu(); });
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && menu) { closeMenu(); event.preventDefault(); }
-  if (menu && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
-    const buttons = [...menu.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')]; const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-    buttons[(index + (event.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length]?.focus(); event.preventDefault();
+  if (event.key === 'Escape' && menu) { const launchMenu = menu.classList.contains('launch-menu'); closeMenu(); if (launchMenu) launchButton.focus({ preventScroll: true }); event.preventDefault(); }
+  if (menu && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+    const buttons = [...menu.querySelectorAll<HTMLButtonElement>('.menu-item:not(:disabled)')]; const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length;
+    buttons[next]?.focus(); event.preventDefault();
   }
 });
 function toggle(id: string) { expanded.has(id) ? expanded.delete(id) : expanded.add(id); persist(); renderTree(); }

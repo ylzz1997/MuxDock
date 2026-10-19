@@ -4,6 +4,7 @@ import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { checkApplicationClipboard, checkSessionScroll, checkTerminalClipboard } from './ui-regressions.mjs';
+import { checkLaunchProfiles, checkRestoredLaunchProfile } from './ui-launch.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -124,6 +125,8 @@ try {
     if (height === 170) await frame.locator('.dock').screenshot({ path: '.test-results/muxdock-empty-compact.png' });
   }
   await resizePanel(350);
+  const launchChecks = await checkLaunchProfiles({ frame, page, cli, until, delay, resizePanel });
+  await writeFile('.test-results/ui-launch.json', JSON.stringify({ editor: testEditor, ...launchChecks }, null, 2));
   assert.equal(await frame.locator('.connection-status').textContent(), '未打开会话');
   await page.screenshot({ path: '.test-results/vscode-empty.png' });
   await frame.getByRole('treeitem', { name: 'my-project', exact: true }).click();
@@ -222,7 +225,8 @@ try {
   await delay(300);
   await assertTerminalFits('tmux status bar visible');
   await frame.locator('.dock').screenshot({ path: '.test-results/muxdock-terminal-bottom.png' });
-  await frame.getByRole('button', { name: '断开连接，保留后台会话', exact: true }).click();
+  await frame.getByRole('treeitem', { name: 'my-project', exact: true }).click({ button: 'right' });
+  await frame.getByRole('menuitem', { name: '断开此连接', exact: true }).click();
   cli(['has-session', '-t', 'my-project']);
   await until(async () => await frame.locator('.terminal-tab.closed').count() === 1);
   await frame.getByRole('treeitem', { name: 'my-project', exact: true }).click();
@@ -393,6 +397,8 @@ try {
   assert.equal(await restoredFrame.locator('#session-sidebar').isVisible(), false);
   await restoredToggle.click();
   assert.equal((await restoredFrame.locator('#session-sidebar').boundingBox()).width, widthBeforeReload);
+  launchChecks.checks.push(await checkRestoredLaunchProfile({ frame: restoredFrame, page, until, ...launchChecks }));
+  await writeFile('.test-results/ui-launch.json', JSON.stringify({ editor: testEditor, ...launchChecks }, null, 2));
   await writeFile('.test-results/ui.json', JSON.stringify({ status: 'PASS', editor: testEditor, installedVsix: installed, layoutChecks, terminalLayoutChecks, rendering, checks: ['session panel collapse expands terminal without disconnecting clients', 'terminal input and tab switching work with the session panel hidden', 'session panel restores width and filter with keyboard toggle', 'session panel visibility and width survive webview reload', 'cancel ending a session preserves backend and active tab', 'ending an inactive session removes only its tab', 'ending the active session selects a remaining tab', 'ending the last session clears terminal and shows welcome', 'terminal last row and cursor fit at four heights and two font sizes', 'no horizontal terminal overflow', 'terminal fits with search expanded and tmux status bar', 'filter toggles below header and clears on close/Escape', 'tabs switch existing clients', 'tab keyboard navigation', 'hide/show tabs applies immediately', 'FIFO tab eviction preserves backend sessions', 'lower maxTabs applies immediately', 'closing last tab shows welcome', 'manager visibility and order apply immediately', 'hidden manager terminal remains usable', 'exited tab retains last output', 'ANSI foreground and background colors', '256-color and truecolor rendering', 'xterm dynamic styles permitted by CSP', 'welcome stays inside content at five panel heights', 'new session button reachable at five panel heights', 'clear empty connection status', 'extension activation', 'real webview tree', 'tmux window click', 'terminal input verified by capture-pane', 'detach preserves session', 'reattach', 'Ctrl+B c passthrough', 'external window sync', 'window rename menu', 'create from manager row', 'reuse existing session connection'], screenshot: 'vscode-muxdock.png' }, null, 2));
   console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} UI: PASS`);
 } catch (error) {

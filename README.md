@@ -11,6 +11,7 @@ Your sessions belong to the underlying manager. Close a tab, detach or reload th
 - **Seven managers in one place.** Discover installed tools and browse their existing sessions without replacing their configuration.
 - **A real interactive terminal.** Keep native keyboard shortcuts, pane layouts, status bars, shell prompts, ANSI colors and truecolor output.
 - **Session tabs.** Switch between open terminals, close individual tabs, hide the tab bar or set a maximum tab count.
+- **Default shell or command.** Choose the shell used for new sessions, or save a startup command such as `codex` in the terminal toolbar.
 - **tmux window navigation.** Expand a session to select, create, rename or close its windows. Native shortcuts such as `Ctrl+B` keep working.
 - **A compact session tree.** Open the filter with the magnifying glass, then collapse it when you are done. Choose which managers appear and in what order.
 - **More room for the terminal.** Collapse the session panel with the button at the far right of the terminal toolbar. Expand it from the same button; its width and visibility are remembered.
@@ -30,8 +31,9 @@ The managers must be installed on the **workspace host**: locally for a local wo
 1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.4.vsix`.
 2. Open the Command Palette, search for **MuxDock**, and open the dock (`muxdock.open`). You can also select the **MuxDock** panel tab.
 3. Click a session in the right-hand tree to attach, or use the `+` beside a manager to create a named session.
-4. Expand a tmux session to browse its windows. Click a window to select it, or use its context menu for window actions.
-5. Use the tabs above the terminal to switch between open sessions. Each tab shows its session name and manager.
+4. Use the terminal icon and shell name in the toolbar to select the default shell for new sessions. It starts with the workspace host's system default shell. Choose **添加命令…** to save and select a command such as `codex`; it runs after shell initialization, and exiting the command returns to the shell. The selection and saved commands are remembered on that host. Use the × beside a saved command to remove it.
+5. Expand a tmux session to browse its windows. Click a window to select it, or use its context menu for window actions.
+6. Use the tabs above the terminal to switch between open sessions. Each tab shows its session name and manager.
 
 Only installed managers are shown by default. After installing a tool, refresh the tree. If a binary is not on the extension host's search path, set its absolute path with `muxdock.executables`.
 
@@ -54,7 +56,7 @@ screen
 | --- | --- |
 | Switch tabs | Reuses an existing connection. |
 | Close a tab | Removes that tab and detaches its client. The background session keeps running. |
-| Detach | Disconnects the client and keeps its final output in a closed tab. |
+| Detach from the session context menu | Disconnects the client and keeps its final output in a closed tab. |
 | Exceed the tab limit | Removes the earliest-opened tab and detaches its client. The background session keeps running. |
 | End a session from the tree | After confirmation, ends the backend session and removes its terminal tabs. |
 | A client exits on its own | Keeps its final output in a closed tab until you close or replace it. |
