@@ -7,6 +7,7 @@ import '@xterm/xterm/css/xterm.css';
 import './style.css';
 import { MANAGER_IDS, type ConnectionInfo, type ManagerInfo, type SessionInfo, type Snapshot, type WindowInfo } from '../src/model';
 import { decodeTerminalClipboard } from '../src/clipboard';
+import { TerminalLinks } from './links';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): Saved | undefined; setState(state: Saved): void };
 interface Saved { width: number; expanded: string[]; filter?: string; filterOpen?: boolean; sidebarCollapsed?: boolean }
@@ -20,7 +21,7 @@ let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavaila
 let displayedKey: string | undefined;
 let lastActiveTarget: string | undefined;
 let focusGeneration = 0;
-const terminals = new Map<string, { terminal: Terminal; fit: FitAddon; search: SearchAddon; element: HTMLElement; seq: number; info: ConnectionInfo; closed: boolean; replaying: boolean }>();
+const terminals = new Map<string, { terminal: Terminal; fit: FitAddon; search: SearchAddon; links: TerminalLinks; element: HTMLElement; seq: number; info: ConnectionInfo; closed: boolean; replaying: boolean }>();
 const paths: Record<string, string> = {
   terminal: '<path d="m4 5 4 3-4 3m6 1h3"/>', plus: '<path d="M8 3v10M3 8h10"/>',
   refresh: '<path d="M13 6a5 5 0 1 0 .1 4M13 2v4H9"/>', chevron: '<path d="m6 4 4 4-4 4"/>',
@@ -181,10 +182,13 @@ function ensureTerminal(info: ConnectionInfo) {
   const fit = new FitAddon(); const search = new SearchAddon();
   terminal.loadAddon(new Unicode11Addon()); terminal.unicode.activeVersion = '11';
   terminal.loadAddon(fit); terminal.loadAddon(search);
-  terminal.loadAddon(new WebLinksAddon((event, url) => { event.preventDefault(); send({ type: 'openLink', url }); }));
   terminal.open(element);
+  const links = new TerminalLinks(terminal, element, info.key, send);
+  terminal.options.linkHandler = links.handler;
+  terminal.loadAddon(new WebLinksAddon(links.activate, { hover: links.hover, leave: links.leave }));
   terminal.options.disableStdin = !!info.closed;
-  entry = { terminal, fit, search, element, seq: 0, info, closed: !!info.closed, replaying: false }; terminals.set(info.key, entry);
+  entry = { terminal, fit, search, links, element, seq: 0, info, closed: !!info.closed, replaying: false }; terminals.set(info.key, entry);
+  terminal.parser.registerOscHandler(7, url => { send({ type: 'terminalCwd', key: info.key, url }); return true; });
   terminal.parser.registerOscHandler(52, data => {
     if (info.key === displayedKey && !entry!.closed && !entry!.replaying) {
       const value = decodeTerminalClipboard(data);
@@ -197,7 +201,7 @@ function ensureTerminal(info: ConnectionInfo) {
   terminal.attachCustomKeyEventHandler(event => {
     if (event.type !== 'keydown') return true;
     const shortcut = event.metaKey || (event.ctrlKey && event.shiftKey);
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') { event.preventDefault(); openSearch(); return false; }
+    if ((/Mac/i.test(navigator.platform) ? event.metaKey : event.ctrlKey) && event.key.toLowerCase() === 'f') { event.preventDefault(); openSearch(); return false; }
     if ((shortcut || (event.ctrlKey && event.key.toLowerCase() === 'c' && terminal.hasSelection())) && event.key.toLowerCase() === 'c') { event.preventDefault(); const value = terminal.getSelection(); if (value) send({ type: 'copy', text: value }); return false; }
     if (shortcut && event.key.toLowerCase() === 'v') { event.preventDefault(); send({ type: 'paste', key: info.key }); return false; }
     if (event.metaKey && event.key.toLowerCase() === 'a') { event.preventDefault(); terminal.selectAll(); return false; }
@@ -205,7 +209,9 @@ function ensureTerminal(info: ConnectionInfo) {
   });
   element.addEventListener('contextmenu', event => {
     event.preventDefault();
+    const target = links.target(); links.hide();
     showMenu(event.clientX, event.clientY, [
+      ...(target ? [{ label: '打开链接', action: () => links.open(target) }, { label: '复制链接地址', action: () => send({ type: 'copy', text: target }) }] : []),
       { label: '复制', disabled: !terminal.hasSelection(), action: () => send({ type: 'copy', text: terminal.getSelection() }) },
       { label: '粘贴', disabled: entry!.closed, action: () => send({ type: 'paste', key: info.key }) },
       { label: '全选', action: () => terminal.selectAll() }, { label: '清空终端显示', action: () => terminal.clear() }
@@ -215,11 +221,12 @@ function ensureTerminal(info: ConnectionInfo) {
 }
 function updateTerminal() {
   for (const info of snapshot.connections) ensureTerminal(info);
-  for (const [key, entry] of terminals) if (!snapshot.connections.some(info => info.key === key)) { entry.terminal.dispose(); entry.element.remove(); terminals.delete(key); }
+  for (const [key, entry] of terminals) if (!snapshot.connections.some(info => info.key === key)) { entry.links.dispose(); entry.terminal.dispose(); entry.element.remove(); terminals.delete(key); }
   displayedKey = snapshot.activeKey;
   const entry = current();
   for (const [key, terminal] of terminals) {
     terminal.element.hidden = key !== displayedKey;
+    terminal.links.setActive(key === displayedKey);
   }
   get('.welcome').hidden = !!entry;
   terminalHosts.hidden = !entry;
@@ -456,6 +463,7 @@ window.addEventListener('message', event => {
   }
   else if (message.type === 'visible') requestAnimationFrame(fitCurrent);
   else if (message.type === 'paste') terminals.get(message.key)?.terminal.paste(message.text);
+  else if (message.type === 'resolvedLinks') terminals.get(message.key)?.links.receive(message);
   else if (message.type === 'refreshing') get('[aria-label="刷新"]').classList.toggle('spinning', message.value);
   else if (message.type === 'error') get('.connection-status').textContent = message.message;
 });

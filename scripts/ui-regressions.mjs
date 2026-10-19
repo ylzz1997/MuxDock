@@ -43,6 +43,13 @@ finally:
   cli(['send-keys', '-t', 'my-project:logs', 'Enter']);
   try {
     await until(async () => (await rows.textContent()).includes('APP_KEYS_READY'));
+    await input.focus(); await page.keyboard.press('Control+f');
+    await until(async () => (await readFile(trace, 'utf8')).includes('"06"'), 5000);
+    assert.equal(await frame.locator('.search-bar').isVisible(), false);
+    await page.keyboard.press('Meta+f');
+    await frame.locator('.search-bar').waitFor({ state: 'visible' });
+    await frame.locator('.search-close').click();
+    checks.push('macOS Ctrl+F reaches the application while Cmd+F opens terminal search');
     for (const [key, hex] of [['Control+c', '03'], ['Alt+c', '1b63']]) {
       setClipboard('APP_CLIPBOARD_SENTINEL');
       await input.focus(); await page.keyboard.press(key);

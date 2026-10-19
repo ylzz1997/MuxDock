@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.5
+
+- Support Cmd/Ctrl-click and destination previews for plain URLs, OSC 8 hyperlinks and existing file paths with line/column navigation. Add link copying actions and preserve terminal text selection and application mouse handling.
+- Advertise tmux client hyperlink/truecolor capabilities and preserve macOS Ctrl+F for terminal applications.
+
 ## 0.0.4
 
 - Replace the toolbar disconnect button with a default shell/startup command picker. Discover installed shells, start with the system default, and remember custom commands for new sessions across all seven managers.

@@ -75,3 +75,14 @@ test('a failed backend reports its error instead of looking like an empty manage
   const result = await adapter.list();
   assert.equal(result.available, true); assert.match(result.error!, /permission denied/);
 });
+
+test('tmux clients advertise supported hyperlinks and colors without changing server options', async () => {
+  for (const [version, features] of [['3.4', 'RGB,hyperlinks,osc7'], ['3.2a', 'RGB'], ['3.1c', undefined], ['next-3.6', 'RGB,hyperlinks,osc7']] as const) {
+    const adapter = new Adapter('tmux', { executable: '/bin/echo', args: ['-L', 'isolated'] }, async () => ({ code: 0, stdout: `tmux ${version}`, stderr: '' }));
+    await adapter.probe();
+    const prefix = features ? ['-L', 'isolated', '-T', features] : ['-L', 'isolated'];
+    assert.deepEqual(adapter.attach({ id: '$1', name: 'dev' }).args, [...prefix, 'attach-session', '-t', '$1']);
+    assert.deepEqual(adapter.create('dev', '/bin/sh').args, [...prefix, 'new-session', '-s', 'dev', '/bin/sh', '-l']);
+    assert.deepEqual(adapter.command(['list-sessions']).args, ['-L', 'isolated', 'list-sessions']);
+  }
+});

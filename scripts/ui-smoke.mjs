@@ -5,6 +5,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { checkApplicationClipboard, checkSessionScroll, checkTerminalClipboard } from './ui-regressions.mjs';
 import { checkLaunchProfiles, checkRestoredLaunchProfile } from './ui-launch.mjs';
+import { checkTerminalLinks } from './ui-links.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -45,7 +46,6 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
 cli(['new-session', '-d', '-s', 'my-project', '-n', 'api', '/bin/sh']);
 cli(['set-option', '-g', 'default-shell', '/bin/sh']);
 cli(['new-window', '-d', '-t', 'my-project', '-n', 'logs', '/bin/sh']);
-cli(['set-option', '-as', 'terminal-features', ',xterm-256color:RGB']);
 await writeFile('.test-results/ui-server-before.txt', cli(['list-sessions']));
 if (installed) {
   const cliPath = process.env.MUXDOCK_CODE_CLI || '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code';
@@ -160,6 +160,8 @@ try {
   assert.notEqual(rendering.colors.ANSI_GREEN_BG.background, 'rgba(0, 0, 0, 0)', 'ANSI background colors must be visible');
   assert.equal(rendering.colors.ANSI_256.foreground, 'rgb(255, 0, 0)');
   assert.equal(rendering.colors.ANSI_RGB.foreground, 'rgb(18, 171, 205)');
+  const linkChecks = await checkTerminalLinks({ frame, page, cli, until, delay });
+  await writeFile('.test-results/ui-links.json', JSON.stringify({ editor: testEditor, checks: linkChecks }, null, 2));
   const scrollChecks = await checkSessionScroll({ frame, page, cli, until, delay, updateSettings });
   const clipboardChecks = await checkTerminalClipboard({ frame, page, cli, until, delay });
   const applicationClipboardChecks = await checkApplicationClipboard({ frame, page, cli, until, delay });

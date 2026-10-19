@@ -16,9 +16,12 @@ Press F5 to open an Extension Development Host, then search for **MuxDock** in t
 ```sh
 npm run test:integration
 npm run test:ui
+npm run test:links
 ```
 
 `test:integration` exercises real backends: creation, terminal input/output, detach persistence, reattachment and cleanup. Missing tools are skipped. Optional executable paths can be supplied in `.test-tools/executables.json`. It uses isolated backend resources rather than terminating existing user sessions.
+
+`test:links` runs browser interaction checks for macOS and Linux modifier keys, OSC 8 and plain URLs, wrapped URLs, file locations, hover actions, selection and application mouse tracking. Install its browser with `npx playwright install chromium --only-shell`. Live editor tests also open real files from OSC 8/relative links and verify their line and column. `webview/links.ts` contains a guarded workaround for xterm 6 retaining stale link replies after mouseleave; keep the redraw/re-entry interaction coverage when updating xterm.
 
 `test:ui` uses a separate editor profile and tmux server with a plain shell. It checks the shell/command picker, command execution and reattachment, saved launch settings, short-panel menu keyboard access, terminal input, colors, fitting at different panel sizes, window navigation, tab switching/limits, session tree scroll retention, clipboard actions with Unicode and mouse tracking, direct and tmux-wrapped OSC 52 application copying, immediate settings updates and ending sessions from the tree. The macOS clipboard checks restore the previous clipboard text after running. They also check that replaying history and background terminal output do not overwrite the clipboard. Backend integration tests execute a startup command on all seven managers and verify it is not repeated on reattachment. Screenshots and reports are saved under `.test-results/`.
 

@@ -20,7 +20,8 @@ export class Connections extends EventEmitter {
   private disposed = false;
   private deliveryEnabled = false;
   activeKey?: string;
-  list(): ConnectionInfo[] { return [...this.entries.values()].map(({ key, manager, sessionId, name, closed }) => ({ key, manager, sessionId, name, closed: !!closed })); }
+  list(): ConnectionInfo[] { return [...this.entries.values()].map(({ key, manager, sessionId, name, closed, cwd }) => ({ key, manager, sessionId, name, closed: !!closed, cwd })); }
+  setCwd(key: string, cwd: string) { const item = this.entries.get(key); if (item) item.cwd = cwd; }
   find(manager: ManagerId, session: SessionInfo): ConnectionInfo | undefined {
     return this.list().find(item => item.manager === manager && (item.sessionId === session.id || item.name === session.name));
   }
@@ -30,7 +31,7 @@ export class Connections extends EventEmitter {
     if (existing) this.disconnect(existing.key);
     const key = randomUUID();
     const process = spawnPty(command.file, command.args, { name: 'xterm-256color', cols, rows, cwd, env: { ...cleanEnvironment(), ...command.env }, encoding: 'utf8' });
-    const item: Connection = { key, manager, sessionId: session.id, name: session.name, process, history: [], bytes: 0, seq: 0, pending: '', outstanding: 0, unacknowledged: new Map() };
+    const item: Connection = { key, manager, sessionId: session.id, name: session.name, cwd, process, history: [], bytes: 0, seq: 0, pending: '', outstanding: 0, unacknowledged: new Map() };
     this.entries.set(key, item);
     this.activeKey = key;
     process.onData(data => {

@@ -91,6 +91,15 @@ export class Adapter {
     if (!this.executable) throw new Error(`${LABELS[this.id]} 未安装或可执行文件路径无效。`);
     return { file: this.executable, args: [...(this.settings.args || []), ...args] };
   }
+  private clientCommand(args: string[]): Command {
+    const version = this.id === 'tmux' && /tmux (?:next-)?(\d+)\.(\d+)/.exec(this.version || '');
+    if (version) {
+      const major = Number(version[1]); const minor = Number(version[2]);
+      if (major > 3 || major === 3 && minor >= 4) return this.command(['-T', 'RGB,hyperlinks,osc7', ...args]);
+      if (major === 3 && minor >= 2) return this.command(['-T', 'RGB', ...args]);
+    }
+    return this.command(args);
+  }
   async probe(force = false): Promise<boolean> {
     if (this.probed && !force) return !!this.executable;
     this.probed = true;
@@ -135,7 +144,7 @@ export class Adapter {
       screen: ['-x', session.id], zellij: ['attach', session.name], shpool: ['attach', session.name],
       abduco: ['-a', session.name], a4: ['-a', session.name]
     };
-    return this.command(commands[this.id]);
+    return this.clientCommand(commands[this.id]);
   }
   create(name: string, shell: string, environmentShell = shell): Command {
     const commands: Record<ManagerId, string[]> = {
@@ -144,7 +153,7 @@ export class Adapter {
       shpool: ['attach', '--dir', '.', '--cmd', ['/usr/bin/env', `SHELL=${shell}`, shell, '-l'].map(shellQuote).join(' '), name],
       abduco: ['-c', name, shell, '-l'], a4: ['-a', name]
     };
-    return { ...this.command(commands[this.id]), env: { SHELL: this.id === 'a4' ? shell : environmentShell } };
+    return { ...this.clientCommand(commands[this.id]), env: { SHELL: this.id === 'a4' ? shell : environmentShell } };
   }
   async rename(session: SessionInfo, name: string): Promise<void> {
     if (!this.capabilities.rename) throw new Error('此管理器不提供会话重命名。');

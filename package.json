@@ -7,7 +7,7 @@
     "color": "#102335",
     "theme": "dark"
   },
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "muxdock",
   "repository": {
     "type": "git",
@@ -216,6 +216,7 @@
     "test": "tsx --test test/*.test.ts",
     "test:integration": "tsx test/integration.ts",
     "test:ui": "node scripts/ui-smoke.mjs",
+    "test:links": "node scripts/test-links.mjs",
     "icon:build": "node scripts/render-icon.mjs",
     "vscode:prepublish": "npm run check && npm run build",
     "package": "vsce package --no-dependencies --out artifacts/"

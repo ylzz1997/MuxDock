@@ -8,6 +8,9 @@ import { Connections } from './connections';
 import { MAX_TERMINAL_CLIPBOARD_BYTES } from './clipboard';
 import { discoverShells, launchExecutable, launchProfiles, readLaunchSettings, systemShell, validateLaunchCommand, type LaunchSettings } from './launch';
 import { MANAGER_IDS, isManagerId, validateName, type ManagerInfo, type ManagerId, type SessionInfo, type Snapshot, type WindowInfo } from './model';
+import { parseTerminalLink } from './links';
+import { resolveFileLink } from './file-links';
+import { run } from './runner';
 
 let activeProvider: DockProvider | undefined;
 export async function deactivate() { await activeProvider?.shutdown(); activeProvider = undefined; }
@@ -157,6 +160,30 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     if (!(await stat(directory)).isDirectory()) throw new Error(`工作目录不存在：${directory}`);
     return directory;
   }
+  private async linkDirectories(key: string): Promise<string[]> {
+    const connection = this.connections.list().find(info => info.key === key);
+    const directories: string[] = [];
+    if (connection?.manager === 'tmux' && !connection.closed) {
+      const result = await run(this.adapters.get('tmux')!.command(['display-message', '-p', '-t', connection.sessionId, '#{pane_current_path}']));
+      const directory = result.stdout.trim();
+      if (!result.code && path.isAbsolute(directory)) directories.push(directory);
+    }
+    if (connection?.cwd) directories.push(connection.cwd);
+    directories.push(...(vscode.workspace.workspaceFolders || []).map(folder => folder.uri.fsPath), await this.cwd());
+    return [...new Set(directories)];
+  }
+  private async openTerminalLink(key: string, value: string) {
+    if (key !== this.connections.activeKey) return;
+    const target = parseTerminalLink(value);
+    if (target?.kind === 'web') { await vscode.env.openExternal(vscode.Uri.parse(target.uri)); return; }
+    if (target?.kind !== 'file') return;
+    const location = await resolveFileLink(value, await this.linkDirectories(key));
+    if (!location) throw new Error('链接对应的文件或目录不存在。');
+    const uri = vscode.Uri.file(location.path);
+    if (location.directory) { await vscode.commands.executeCommand('revealInExplorer', uri); return; }
+    const position = new vscode.Position((location.line || 1) - 1, (location.column || 1) - 1);
+    await vscode.window.showTextDocument(uri, { preview: true, selection: new vscode.Range(position, position) });
+  }
   private async connect(managerId: ManagerId, session: SessionInfo, create = false, revision = this.activationRevision) {
     return this.queueConnections(async () => {
       if (!create && revision !== this.activationRevision) return;
@@ -259,7 +286,21 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       await vscode.workspace.getConfiguration('muxdock').update('showUnavailable', !!m.value, vscode.ConfigurationTarget.Global);
       this.publish(); return;
     }
-    if (m.type === 'openLink' && typeof m.url === 'string' && /^https?:\/\//i.test(m.url)) { await vscode.env.openExternal(vscode.Uri.parse(m.url)); return; }
+    if (m.type === 'openLink' && typeof m.key === 'string' && typeof m.url === 'string') { await this.openTerminalLink(m.key, m.url); return; }
+    if (m.type === 'resolveLinks' && typeof m.key === 'string' && Number.isSafeInteger(m.request) && Array.isArray(m.targets) && this.connections.list().some(info => info.key === m.key)) {
+      const targets = m.targets.filter((value): value is string => typeof value === 'string').slice(0, 32);
+      const directories = await this.linkDirectories(m.key);
+      const links = await Promise.all(targets.map(async input => {
+        const file = await resolveFileLink(input, directories);
+        return file ? { input, target: vscode.Uri.file(file.path).toString() + (file.line ? `#L${file.line}${file.column ? `C${file.column}` : ''}` : '') } : undefined;
+      }));
+      this.post({ type: 'resolvedLinks', key: m.key, request: m.request, links: links.filter(Boolean) }); return;
+    }
+    if (m.type === 'terminalCwd' && typeof m.key === 'string' && typeof m.url === 'string') {
+      const target = parseTerminalLink(m.url);
+      if (target?.kind === 'file' && path.isAbsolute(target.path)) this.connections.setCwd(m.key, target.path);
+      return;
+    }
     if (m.type === 'copy' && typeof m.text === 'string') { await vscode.env.clipboard.writeText(m.text); return; }
     if (m.type === 'terminalCopy' && typeof m.key === 'string' && typeof m.text === 'string') {
       if (m.key === this.connections.activeKey && Buffer.byteLength(m.text, 'utf8') <= MAX_TERMINAL_CLIPBOARD_BYTES && this.connections.list().some(info => info.key === m.key && !info.closed)) await vscode.env.clipboard.writeText(m.text);

@@ -18,7 +18,7 @@ export interface ManagerInfo {
   capabilities: { rename: boolean; kill: boolean; windows: boolean };
 }
 export interface Command { file: string; args: string[]; env?: Record<string, string> }
-export interface ConnectionInfo { key: string; manager: ManagerId; sessionId: string; name: string; closed?: boolean }
+export interface ConnectionInfo { key: string; manager: ManagerId; sessionId: string; name: string; closed?: boolean; cwd?: string }
 export interface Appearance { fontSize: number; fontFamily: string; scrollback: number }
 export interface LaunchProfile { id: string; name: string; detail: string; kind: 'shell' | 'command' }
 export interface Snapshot {

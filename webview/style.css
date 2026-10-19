@@ -125,6 +125,12 @@ input:focus { border-color: var(--vscode-focusBorder, #007fd4); }
 .context-menu .menu-remove { width: 24px; height: 24px; flex-shrink: 0; margin-right: 4px; }
 .context-menu button:hover:not(:disabled), .context-menu button:focus-visible { background: var(--vscode-menu-selectionBackground, #04395e); color: var(--vscode-menu-selectionForeground, white); }
 .context-menu .danger { color: var(--vscode-errorForeground, #f48771); }
+.terminal-link-hover { position: fixed; z-index: 90; max-width: min(440px, calc(100vw - 8px)); max-height: calc(100vh - 8px); overflow: auto; padding: 8px 10px; border: 1px solid var(--vscode-editorHoverWidget-border, #454545); border-radius: 4px; background: var(--vscode-editorHoverWidget-background, #252526); color: var(--vscode-editorHoverWidget-foreground, #ccc); box-shadow: 0 3px 12px var(--vscode-widget-shadow, #0006); font-size: 12px; }
+.link-destination { overflow-wrap: anywhere; max-height: 100px; overflow-y: auto; user-select: text; }
+.link-hint { color: var(--vscode-descriptionForeground); font-size: 11px; margin-top: 5px; }
+.link-actions { display: flex; gap: 12px; margin-top: 6px; }
+.link-actions button { padding: 2px 0; color: var(--vscode-textLink-foreground, #4daafc); }
+.link-actions button:hover { text-decoration: underline; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinning .icon { animation: spin 1s linear infinite; }
 @media (max-width: 520px) { .terminal-actions [aria-label="复制选中内容"], .host-name { display: none; } .terminal-header { padding-left: 6px; } }
