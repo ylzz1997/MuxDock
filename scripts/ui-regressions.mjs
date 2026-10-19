@@ -1,6 +1,101 @@
 import { execFileSync } from 'node:child_process';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+
+export async function checkApplicationClipboard({ frame, page, cli, until, delay }) {
+  const clipboard = () => execFileSync('/usr/bin/pbpaste', [], { encoding: 'utf8' });
+  const setClipboard = value => execFileSync('/usr/bin/pbcopy', [], { input: value });
+  const previous = clipboard();
+  const trace = path.resolve('.test-results/application-keys.jsonl');
+  const script = path.resolve('.test-results/application-clipboard.py');
+  const payload = 'APP_COPY_中文_🙂';
+  const encoded = Buffer.from(payload).toString('base64');
+  const input = frame.locator('.terminal-instance:not([hidden]) .xterm-helper-textarea');
+  const rows = frame.locator('.terminal-instance:not([hidden]) .xterm-rows');
+  const checks = [];
+  const observations = [];
+  await writeFile(trace, '');
+  await writeFile(script, String.raw`import os,sys,termios,tty,json
+fd=sys.stdin.fileno()
+old=termios.tcgetattr(fd)
+print('APP_KEYS_READY',flush=True)
+try:
+ tty.setraw(fd)
+ while True:
+  key=os.read(fd,1)
+  if key==b'\x1b': key+=os.read(fd,1)
+  if key==b'q': break
+  with open(${JSON.stringify(trace)},'a') as f: f.write(json.dumps(key.hex())+'\n')
+  if key in (b'\x03',b'\x1bc'):
+   sequence='\x1b]52;c;${encoded}\x07'
+   if key==b'\x1bc': sequence='\x1bPtmux;'+sequence.replace('\x1b','\x1b\x1b')+'\x1b\\'
+   sys.stdout.write(sequence)
+   sys.stdout.flush()
+finally:
+ termios.tcsetattr(fd,termios.TCSADRAIN,old)
+ print('APP_KEYS_DONE',flush=True)
+`);
+  const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
+  cli(['set-option', '-t', 'my-project', 'set-clipboard', 'on']);
+  cli(['set-option', '-t', 'my-project', 'allow-passthrough', 'on']);
+  cli(['send-keys', '-t', 'my-project:logs', '-l', `python3 ${quote(script)}`]);
+  cli(['send-keys', '-t', 'my-project:logs', 'Enter']);
+  try {
+    await until(async () => (await rows.textContent()).includes('APP_KEYS_READY'));
+    for (const [key, hex] of [['Control+c', '03'], ['Alt+c', '1b63']]) {
+      setClipboard('APP_CLIPBOARD_SENTINEL');
+      await input.focus(); await page.keyboard.press(key);
+      await until(async () => (await readFile(trace, 'utf8')).includes(`"${hex}"`), 5000);
+      await delay(400);
+      observations.push({ key, received: hex, copied: clipboard() === payload });
+    }
+    await writeFile('.test-results/application-clipboard.json', JSON.stringify({ observations }, null, 2));
+    for (const observation of observations) {
+      assert.ok(observation.copied, `${observation.key} reached the application, but its OSC 52 clipboard output was not applied`);
+      checks.push(`${observation.key} application clipboard output reaches local clipboard`);
+    }
+    const activeKey = await frame.getByRole('tab', { name: 'my-project (tmux)', exact: true }).getAttribute('data-key');
+    setClipboard('APP_REPLAY_SENTINEL');
+    await frame.evaluate(({ key, encoded }) => {
+      window.dispatchEvent(new MessageEvent('message', { data: { type: 'output', key, seq: 0, replay: true, data: `\x1b]52;c;${encoded}\x07APP_REPLAY_READY\r\n` } }));
+    }, { key: activeKey, encoded });
+    await until(async () => (await rows.textContent()).includes('APP_REPLAY_READY'));
+    assert.equal(clipboard(), 'APP_REPLAY_SENTINEL', 'Replaying terminal history must not overwrite clipboard');
+    checks.push('terminal history replay does not overwrite clipboard');
+    await input.focus(); await page.keyboard.press('Alt+c');
+    await until(async () => clipboard() === payload, 5000);
+    checks.push('live application copying resumes after replay');
+    cli(['new-session', '-d', '-s', 'clipboard-guard', '/bin/sh']);
+    try {
+      await frame.getByRole('button', { name: '刷新', exact: true }).click();
+      await frame.getByRole('treeitem', { name: 'clipboard-guard', exact: true }).click();
+      await until(async () => await frame.getByRole('tab', { name: 'clipboard-guard (tmux)', exact: true }).getAttribute('aria-selected') === 'true');
+      setClipboard('APP_BACKGROUND_SENTINEL');
+      const before = (await readFile(trace, 'utf8')).length;
+      cli(['send-keys', '-t', 'my-project:logs', 'C-c']);
+      await until(async () => (await readFile(trace, 'utf8')).length > before);
+      await delay(400);
+      assert.equal(clipboard(), 'APP_BACKGROUND_SENTINEL', 'A background terminal must not overwrite clipboard');
+      checks.push('background application clipboard output is ignored');
+    } finally {
+      await frame.getByRole('tab', { name: 'my-project (tmux)', exact: true }).click();
+      await until(async () => await frame.getByRole('tab', { name: 'my-project (tmux)', exact: true }).getAttribute('aria-selected') === 'true');
+      const close = frame.getByRole('button', { name: '关闭标签页 clipboard-guard (tmux)', exact: true });
+      if (await close.count()) await close.click();
+      cli(['kill-session', '-t', 'clipboard-guard']);
+    }
+  } finally {
+    try {
+      await input.focus(); await page.keyboard.press('q');
+      await until(async () => (await rows.textContent()).includes('APP_KEYS_DONE'));
+    } finally {
+      setClipboard(previous);
+      await writeFile('.test-results/application-clipboard.json', JSON.stringify({ observations, checks }, null, 2));
+    }
+  }
+  return checks;
+}
 
 export async function checkTerminalClipboard({ frame, page, cli, until, delay }) {
   const clipboard = () => execFileSync('/usr/bin/pbpaste', [], { encoding: 'utf8' });

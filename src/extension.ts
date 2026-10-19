@@ -5,6 +5,7 @@ import { stat } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { Adapter, LABELS } from './adapters';
 import { Connections } from './connections';
+import { MAX_TERMINAL_CLIPBOARD_BYTES } from './clipboard';
 import { MANAGER_IDS, isManagerId, validateName, type ManagerInfo, type ManagerId, type SessionInfo, type Snapshot, type WindowInfo } from './model';
 
 let activeProvider: DockProvider | undefined;
@@ -217,6 +218,10 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     }
     if (m.type === 'openLink' && typeof m.url === 'string' && /^https?:\/\//i.test(m.url)) { await vscode.env.openExternal(vscode.Uri.parse(m.url)); return; }
     if (m.type === 'copy' && typeof m.text === 'string') { await vscode.env.clipboard.writeText(m.text); return; }
+    if (m.type === 'terminalCopy' && typeof m.key === 'string' && typeof m.text === 'string') {
+      if (m.key === this.connections.activeKey && Buffer.byteLength(m.text, 'utf8') <= MAX_TERMINAL_CLIPBOARD_BYTES && this.connections.list().some(info => info.key === m.key && !info.closed)) await vscode.env.clipboard.writeText(m.text);
+      return;
+    }
     if (m.type === 'paste' && typeof m.key === 'string' && m.key === this.connections.activeKey) { this.post({ type: 'paste', key: m.key, text: await vscode.env.clipboard.readText() }); return; }
     if ((m.type === 'disconnect' || m.type === 'closeTab') && typeof m.key === 'string') {
       await this.queueConnections(() => this.closeConnection(m.key as string, m.type === 'disconnect'));

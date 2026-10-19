@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.4
+
+- Handle OSC 52 clipboard writes from terminal applications so application-managed copy shortcuts work in VS Code and Cursor.
+- Ignore clipboard requests from background or closed terminals and history replay, and reject clipboard reads and malformed payloads.
+
 ## 0.0.3
 
 - Preserve the session tree's scroll position when selecting sessions, switching tabs and refreshing.

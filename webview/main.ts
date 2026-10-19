@@ -6,6 +6,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 import './style.css';
 import { MANAGER_IDS, type ConnectionInfo, type ManagerInfo, type SessionInfo, type Snapshot, type WindowInfo } from '../src/model';
+import { decodeTerminalClipboard } from '../src/clipboard';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): Saved | undefined; setState(state: Saved): void };
 interface Saved { width: number; expanded: string[]; filter?: string; filterOpen?: boolean; sidebarCollapsed?: boolean }
@@ -19,7 +20,7 @@ let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavaila
 let displayedKey: string | undefined;
 let lastActiveTarget: string | undefined;
 let focusGeneration = 0;
-const terminals = new Map<string, { terminal: Terminal; fit: FitAddon; search: SearchAddon; element: HTMLElement; seq: number; info: ConnectionInfo; closed: boolean }>();
+const terminals = new Map<string, { terminal: Terminal; fit: FitAddon; search: SearchAddon; element: HTMLElement; seq: number; info: ConnectionInfo; closed: boolean; replaying: boolean }>();
 const paths: Record<string, string> = {
   terminal: '<path d="m4 5 4 3-4 3m6 1h3"/>', plus: '<path d="M8 3v10M3 8h10"/>',
   refresh: '<path d="M13 6a5 5 0 1 0 .1 4M13 2v4H9"/>', chevron: '<path d="m6 4 4 4-4 4"/>',
@@ -165,7 +166,14 @@ function ensureTerminal(info: ConnectionInfo) {
   terminal.loadAddon(new WebLinksAddon((event, url) => { event.preventDefault(); send({ type: 'openLink', url }); }));
   terminal.open(element);
   terminal.options.disableStdin = !!info.closed;
-  entry = { terminal, fit, search, element, seq: 0, info, closed: !!info.closed }; terminals.set(info.key, entry);
+  entry = { terminal, fit, search, element, seq: 0, info, closed: !!info.closed, replaying: false }; terminals.set(info.key, entry);
+  terminal.parser.registerOscHandler(52, data => {
+    if (info.key === displayedKey && !entry!.closed && !entry!.replaying) {
+      const value = decodeTerminalClipboard(data);
+      if (value !== undefined) send({ type: 'terminalCopy', key: info.key, text: value });
+    }
+    return true;
+  });
   terminal.onData(data => { if (!entry!.closed) send({ type: 'input', key: info.key, data }); });
   terminal.onResize(({ cols, rows }) => send({ type: 'resize', key: info.key, cols, rows }));
   terminal.attachCustomKeyEventHandler(event => {
@@ -396,9 +404,12 @@ window.addEventListener('message', event => {
   } else if (message.type === 'output') {
     const entry = terminals.get(message.key);
     if (!entry) return;
-    if (message.replay) { entry.terminal.reset(); entry.seq = 0; }
+    if (message.replay) { entry.replaying = true; entry.terminal.reset(); entry.seq = 0; }
     if (!message.replay && message.seq <= entry.seq) return;
-    entry.seq = message.seq; entry.terminal.write(message.data, () => send({ type: 'ack', key: message.key, seq: message.seq }));
+    entry.seq = message.seq; entry.terminal.write(message.data, () => {
+      if (message.replay) entry.replaying = false;
+      send({ type: 'ack', key: message.key, seq: message.seq });
+    });
   } else if (message.type === 'focus' && message.key === snapshot.activeKey) {
     const generation = ++focusGeneration;
     requestAnimationFrame(() => { if (generation === focusGeneration && message.key === snapshot.activeKey) current()?.terminal.focus(); });

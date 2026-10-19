@@ -3,7 +3,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import { checkSessionScroll, checkTerminalClipboard } from './ui-regressions.mjs';
+import { checkApplicationClipboard, checkSessionScroll, checkTerminalClipboard } from './ui-regressions.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -42,6 +42,7 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
   'window.dialogStyle': 'custom'
 }, null, 2));
 cli(['new-session', '-d', '-s', 'my-project', '-n', 'api', '/bin/sh']);
+cli(['set-option', '-g', 'default-shell', '/bin/sh']);
 cli(['new-window', '-d', '-t', 'my-project', '-n', 'logs', '/bin/sh']);
 cli(['set-option', '-as', 'terminal-features', ',xterm-256color:RGB']);
 await writeFile('.test-results/ui-server-before.txt', cli(['list-sessions']));
@@ -82,11 +83,13 @@ try {
       if (event.effectiveDirective.startsWith('style-src')) window.styleViolations.push({ directive: event.effectiveDirective, blockedURI: event.blockedURI });
     });
   });
-  await frame.getByRole('treeitem', { name: 'my-project', exact: true }).waitFor({ timeout: 30000 });
+  const restoreSidebar = frame.getByRole('button', { name: '展开会话面板', exact: true });
+  if (await restoreSidebar.isVisible()) await restoreSidebar.click();
   const filterToggle = frame.getByRole('button', { name: '筛选会话', exact: true });
   const filterInput = frame.locator('input.filter');
   if (await filterInput.isVisible()) await filterToggle.click();
   assert.equal(await filterInput.isVisible(), false);
+  await frame.getByRole('treeitem', { name: 'my-project', exact: true }).waitFor({ timeout: 30000 });
   const panel = page.locator('.part.panel');
   const resizePanel = async height => {
     const box = await panel.boundingBox();
@@ -156,7 +159,8 @@ try {
   assert.equal(rendering.colors.ANSI_RGB.foreground, 'rgb(18, 171, 205)');
   const scrollChecks = await checkSessionScroll({ frame, page, cli, until, delay, updateSettings });
   const clipboardChecks = await checkTerminalClipboard({ frame, page, cli, until, delay });
-  await writeFile('.test-results/ui-regressions.json', JSON.stringify({ editor: testEditor, scrollChecks, clipboardChecks }, null, 2));
+  const applicationClipboardChecks = await checkApplicationClipboard({ frame, page, cli, until, delay });
+  await writeFile('.test-results/ui-regressions.json', JSON.stringify({ editor: testEditor, scrollChecks, clipboardChecks, applicationClipboardChecks }, null, 2));
   const terminalLayoutChecks = [];
   const readTerminalLayout = () => frame.evaluate(() => {
     const terminal = document.querySelector('.terminal-instance:not([hidden])');
@@ -349,10 +353,10 @@ try {
   await page.screenshot({ path: '.test-results/vscode-muxdock.png' });
   await frame.locator('.dock').screenshot({ path: '.test-results/muxdock-panel.png' });
   await frame.getByRole('treeitem', { name: 'secondary', exact: true }).click();
-  await until(async () => cli(['display-message', '-p', '-t', 'secondary', '#{pane_current_command}']).trim() === path.basename(process.env.SHELL || '/bin/sh'));
+  await until(async () => ['sh', 'bash', 'dash'].includes(cli(['display-message', '-p', '-t', 'secondary', '#{pane_current_command}']).trim()));
   await resizePanel(420);
   await delay(600);
-  await frame.locator('.dock').screenshot({ path: '.test-results/muxdock-zsh.png' });
+  await frame.locator('.dock').screenshot({ path: '.test-results/muxdock-shell.png' });
   const endFromTree = async (name, confirm = true) => {
     await frame.getByRole('treeitem', { name, exact: true }).click({ button: 'right' });
     await frame.getByRole('menuitem', { name: '结束会话…', exact: true }).click();
@@ -392,6 +396,9 @@ try {
   await writeFile('.test-results/ui.json', JSON.stringify({ status: 'PASS', editor: testEditor, installedVsix: installed, layoutChecks, terminalLayoutChecks, rendering, checks: ['session panel collapse expands terminal without disconnecting clients', 'terminal input and tab switching work with the session panel hidden', 'session panel restores width and filter with keyboard toggle', 'session panel visibility and width survive webview reload', 'cancel ending a session preserves backend and active tab', 'ending an inactive session removes only its tab', 'ending the active session selects a remaining tab', 'ending the last session clears terminal and shows welcome', 'terminal last row and cursor fit at four heights and two font sizes', 'no horizontal terminal overflow', 'terminal fits with search expanded and tmux status bar', 'filter toggles below header and clears on close/Escape', 'tabs switch existing clients', 'tab keyboard navigation', 'hide/show tabs applies immediately', 'FIFO tab eviction preserves backend sessions', 'lower maxTabs applies immediately', 'closing last tab shows welcome', 'manager visibility and order apply immediately', 'hidden manager terminal remains usable', 'exited tab retains last output', 'ANSI foreground and background colors', '256-color and truecolor rendering', 'xterm dynamic styles permitted by CSP', 'welcome stays inside content at five panel heights', 'new session button reachable at five panel heights', 'clear empty connection status', 'extension activation', 'real webview tree', 'tmux window click', 'terminal input verified by capture-pane', 'detach preserves session', 'reattach', 'Ctrl+B c passthrough', 'external window sync', 'window rename menu', 'create from manager row', 'reuse existing session connection'], screenshot: 'vscode-muxdock.png' }, null, 2));
   console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} UI: PASS`);
 } catch (error) {
+  for (const target of ['my-project:logs', 'secondary']) {
+    try { await writeFile(`.test-results/pane-failure-${target.replace(':', '-')}.txt`, cli(['capture-pane', '-p', '-S', '-100', '-t', target])); } catch { }
+  }
   if (browser) for (const page of browser.contexts()[0].pages()) if (page.url().includes('workbench')) {
     await page.screenshot({ path: '.test-results/vscode-failure.png' }).catch(() => {});
     for (const frame of page.frames()) if (await frame.locator('.dock').count().catch(() => 0)) await writeFile('.test-results/ui-failure.json', JSON.stringify(await frame.evaluate(() => ({ activeElement: document.activeElement?.outerHTML.slice(0, 700), hasFocus: document.hasFocus(), tabs: [...document.querySelectorAll('[role=tab]')].map(tab => ({ key: tab.getAttribute('aria-label'), selected: tab.getAttribute('aria-selected') })) })), null, 2));
