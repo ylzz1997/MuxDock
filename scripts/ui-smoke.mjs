@@ -3,6 +3,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { checkSessionScroll, checkTerminalClipboard } from './ui-regressions.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -131,7 +132,7 @@ try {
   await input.focus();
   await page.keyboard.type("printf 'MUXDOCK_%s\\n' 'UI_OK'"); await page.keyboard.press('Enter');
   await until(async () => cli(['capture-pane', '-p', '-t', 'my-project:logs']).includes('MUXDOCK_UI_OK'));
-  await page.keyboard.type("printf '\\033[31mANSI_RED\\033[0m \\033[32mANSI_GREEN\\033[0m \\033[42mANSI_GREEN_BG\\033[0m \\033[38;5;196mANSI_256\\033[0m \\033[38;2;18;171;205mANSI_RGB\\033[0m\\n'");
+  await page.keyboard.type("printf '\\033[31mANSI_RED\\033[0m\\n\\033[32mANSI_GREEN\\033[0m\\n\\033[42mANSI_GREEN_BG\\033[0m\\n\\033[38;5;196mANSI_256\\033[0m\\n\\033[38;2;18;171;205mANSI_RGB\\033[0m\\n'");
   await page.keyboard.press('Enter');
   const rendering = await until(async () => frame.evaluate(() => {
     const terminal = document.querySelector('.terminal-instance:not([hidden])');
@@ -153,6 +154,9 @@ try {
   assert.notEqual(rendering.colors.ANSI_GREEN_BG.background, 'rgba(0, 0, 0, 0)', 'ANSI background colors must be visible');
   assert.equal(rendering.colors.ANSI_256.foreground, 'rgb(255, 0, 0)');
   assert.equal(rendering.colors.ANSI_RGB.foreground, 'rgb(18, 171, 205)');
+  const scrollChecks = await checkSessionScroll({ frame, page, cli, until, delay, updateSettings });
+  const clipboardChecks = await checkTerminalClipboard({ frame, page, cli, until, delay });
+  await writeFile('.test-results/ui-regressions.json', JSON.stringify({ editor: testEditor, scrollChecks, clipboardChecks }, null, 2));
   const terminalLayoutChecks = [];
   const readTerminalLayout = () => frame.evaluate(() => {
     const terminal = document.querySelector('.terminal-instance:not([hidden])');

@@ -2,6 +2,7 @@ import { Terminal, type ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 import './style.css';
 import { MANAGER_IDS, type ConnectionInfo, type ManagerInfo, type SessionInfo, type Snapshot, type WindowInfo } from '../src/model';
@@ -156,8 +157,10 @@ function ensureTerminal(info: ConnectionInfo) {
   if (entry) { entry.info = info; entry.closed = !!info.closed; entry.terminal.options.disableStdin = !!info.closed; return entry; }
   const element = document.createElement('div'); element.className = 'terminal-instance'; element.hidden = true;
   terminalHosts.append(element);
-  const terminal = new Terminal({ ...snapshot.appearance, cursorBlink: true, lineHeight: 1.16, theme: theme(), allowProposedApi: false, macOptionIsMeta: true });
+  // Unicode11Addon needs the Unicode API so emoji widths match modern backends.
+  const terminal = new Terminal({ ...snapshot.appearance, cursorBlink: true, lineHeight: 1.16, theme: theme(), allowProposedApi: true, macOptionIsMeta: true, macOptionClickForcesSelection: true });
   const fit = new FitAddon(); const search = new SearchAddon();
+  terminal.loadAddon(new Unicode11Addon()); terminal.unicode.activeVersion = '11';
   terminal.loadAddon(fit); terminal.loadAddon(search);
   terminal.loadAddon(new WebLinksAddon((event, url) => { event.preventDefault(); send({ type: 'openLink', url }); }));
   terminal.open(element);
@@ -169,7 +172,7 @@ function ensureTerminal(info: ConnectionInfo) {
     if (event.type !== 'keydown') return true;
     const shortcut = event.metaKey || (event.ctrlKey && event.shiftKey);
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') { event.preventDefault(); openSearch(); return false; }
-    if ((shortcut || (event.ctrlKey && event.key.toLowerCase() === 'c' && terminal.hasSelection())) && event.key.toLowerCase() === 'c') { event.preventDefault(); send({ type: 'copy', text: terminal.getSelection() }); return false; }
+    if ((shortcut || (event.ctrlKey && event.key.toLowerCase() === 'c' && terminal.hasSelection())) && event.key.toLowerCase() === 'c') { event.preventDefault(); const value = terminal.getSelection(); if (value) send({ type: 'copy', text: value }); return false; }
     if (shortcut && event.key.toLowerCase() === 'v') { event.preventDefault(); send({ type: 'paste', key: info.key }); return false; }
     if (event.metaKey && event.key.toLowerCase() === 'a') { event.preventDefault(); terminal.selectAll(); return false; }
     return true;
@@ -308,6 +311,7 @@ function addMenu(element: HTMLElement, items: MenuItem[]) {
   element.addEventListener('contextmenu', event => { event.preventDefault(); showMenu(event.clientX, event.clientY, items); });
 }
 function renderTree() {
+  const { scrollTop, scrollLeft } = tree;
   // An iframe retains activeElement while a VS Code Quick Input has focus.
   // Restoring it unconditionally dismisses the host's input dialog.
   const hadTreeFocus = document.hasFocus() && tree.contains(document.activeElement);
@@ -363,6 +367,8 @@ function renderTree() {
   const rows = [...tree.querySelectorAll<HTMLElement>('.tree-row')];
   const focusRow = rows.find(row => row.dataset.node === focused) || rows.find(row => row.classList.contains('selected')) || rows[0];
   if (focusRow) { focusRow.tabIndex = 0; if (focused) focusRow.focus({ preventScroll: true }); }
+  // Keep scrolling independent of row replacement and focus restoration.
+  tree.scrollTop = scrollTop; tree.scrollLeft = scrollLeft;
   const available = visibleManagers.filter(manager => manager.available).length;
   get('.sidebar-footer').textContent = `${available} 个可用管理器`;
 }

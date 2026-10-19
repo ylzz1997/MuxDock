@@ -27,7 +27,7 @@ The managers must be installed on the **workspace host**: locally for a local wo
 
 ## Getting started
 
-1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.2.vsix`.
+1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.3.vsix`.
 2. Open the Command Palette, search for **MuxDock**, and open the dock (`muxdock.open`). You can also select the **MuxDock** panel tab.
 3. Click a session in the right-hand tree to attach, or use the `+` beside a manager to create a named session.
 4. Expand a tmux session to browse its windows. Click a window to select it, or use its context menu for window actions.
@@ -123,6 +123,7 @@ Manager IDs are `tmux`, `zmx`, `screen`, `zellij`, `shpool`, `abduco` and `a4`. 
 - Drag the divider between the terminal and session tree to resize it. The focused divider also accepts Left/Right keys.
 - Use the rightmost terminal-toolbar button to hide or show the entire session panel. Existing terminal connections keep running, and tabs remain available while the panel is hidden.
 - Use `Cmd+C/V` on macOS or `Ctrl+Shift+C/V` on Linux to copy and paste. Terminal context menus also provide clipboard actions.
+- If a terminal application or multiplexer captures the mouse, hold `Option` on macOS or `Shift` on Linux while dragging to select text, then copy normally.
 - Use `Cmd+F` or `Ctrl+F` to search terminal output. HTTP and HTTPS links can be opened from the terminal.
 
 ## Troubleshooting

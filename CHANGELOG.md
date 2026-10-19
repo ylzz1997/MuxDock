@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.3
+
+- Preserve the session tree's scroll position when selecting sessions, switching tabs and refreshing.
+- Allow Option-drag text selection on macOS when a terminal application captures the mouse, and preserve the clipboard when copying without a selection.
+- Use Unicode 11 character widths so emoji render and copy without extra padding spaces.
+
 ## 0.0.2
 
 - Fix zmx session discovery when list output indents each row, so every session appears in the tree.

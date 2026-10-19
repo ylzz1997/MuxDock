@@ -20,7 +20,7 @@ npm run test:ui
 
 `test:integration` exercises real backends: creation, terminal input/output, detach persistence, reattachment and cleanup. Missing tools are skipped. Optional executable paths can be supplied in `.test-tools/executables.json`. It uses isolated backend resources rather than terminating existing user sessions.
 
-`test:ui` uses a separate editor profile and tmux server. It checks terminal input, colors, fitting at different panel sizes, window navigation, tab switching/limits, immediate settings updates and ending sessions from the tree. Screenshots and reports are saved under `.test-results/`.
+`test:ui` uses a separate editor profile and tmux server. It checks terminal input, colors, fitting at different panel sizes, window navigation, tab switching/limits, session tree scroll retention, clipboard actions with Unicode and mouse tracking, immediate settings updates and ending sessions from the tree. The macOS clipboard checks restore the previous clipboard text after running. Screenshots and reports are saved under `.test-results/`.
 
 The UI test defaults to the standard macOS VS Code and Homebrew tmux paths. Override `MUXDOCK_CODE`, `MUXDOCK_CODE_CLI` and `MUXDOCK_TMUX` for other installations. Set `MUXDOCK_USE_VSIX` to a VSIX path to test an installed package instead of a development extension. When testing Cursor, also set `MUXDOCK_TEST_EDITOR=cursor` to use a separate profile and extension directory.
 
