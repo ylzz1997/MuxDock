@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('muxdock.open', () => vscode.commands.executeCommand('muxdock.dock.focus')),
     vscode.commands.registerCommand('muxdock.refresh', () => provider.refresh(true)),
     vscode.commands.registerCommand('muxdock.newSession', () => provider.newSession()),
-    vscode.commands.registerCommand('muxdock.settings', () => vscode.commands.executeCommand('workbench.action.openSettings', '@ext:muxdock.muxdock')),
+    vscode.commands.registerCommand('muxdock.settings', (fontsOnly = false) => vscode.commands.executeCommand('workbench.action.openSettings', fontsOnly === true ? '@ext:muxdock.muxdock font' : '@ext:muxdock.muxdock')),
     vscode.commands.registerCommand('muxdock.logs', () => output.show()),
     vscode.workspace.onDidChangeConfiguration(event => {
       if (event.affectsConfiguration('muxdock') || event.affectsConfiguration('terminal.integrated.fontFamily')) provider.configure();
@@ -101,7 +101,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       managers: this.managers, connections: this.connections.list(), activeKey: this.connections.activeKey,
       showUnavailable: config.get('showUnavailable', false), host: vscode.env.remoteName ? `${vscode.env.remoteName} · ${os.hostname()}` : os.hostname(),
       visibleManagers: this.visibleManagers(), showTabs: config.get('showTabs', true), maxTabs: this.maxTabs(),
-      appearance: { fontSize: config.get('fontSize', 14), fontFamily: config.get<string>('fontFamily') || terminal.get<string>('fontFamily') || 'Menlo, Monaco, monospace', scrollback: config.get('scrollback', 10000) },
+      appearance: { fontSize: config.get('fontSize', 12), fontFamily: config.get<string>('fontFamily') || terminal.get<string>('fontFamily') || 'Menlo, Monaco, monospace', scrollback: config.get('scrollback', 10000) },
       ...launchProfiles(this.launchSettings, this.shells, this.defaultShell)
     };
   }
@@ -291,7 +291,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       await this.saveLaunchSettings({ ...this.launchSettings, commands: this.launchSettings.commands.filter(item => item.id !== id), commandId: this.launchSettings.commandId === id ? undefined : this.launchSettings.commandId });
       return;
     }
-    if (m.type === 'settings') { await vscode.commands.executeCommand('muxdock.settings'); return; }
+    if (m.type === 'settings') { await vscode.commands.executeCommand('muxdock.settings', m.fontsOnly === true); return; }
     if (m.type === 'showUnavailable') {
       await vscode.workspace.getConfiguration('muxdock').update('showUnavailable', !!m.value, vscode.ConfigurationTarget.Global);
       this.publish(); return;

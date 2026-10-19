@@ -87,6 +87,8 @@ Screen restoration and scrollback after reconnecting depend on the manager. In p
 
 Search for **MuxDock** in Settings, or use `@ext:muxdock.muxdock`.
 
+To adjust terminal text, right-click inside a terminal or open the session panel's **More actions** menu and choose **终端字体设置…**. Font size and font family changes apply immediately to open terminals; custom values are preserved when the default changes.
+
 | Setting | Default | Description |
 | --- | --- | --- |
 | `muxdock.showTabs` | `true` | Show the terminal tab bar. Use the tree to switch sessions when hidden. |
@@ -94,14 +96,14 @@ Search for **MuxDock** in Settings, or use `@ext:muxdock.muxdock`.
 | `muxdock.visibleManagers` | All seven | Managers displayed in the tree, in list order. An empty array hides all managers without closing existing tabs. |
 | `muxdock.showUnavailable` | `false` | Also show selected managers that are not installed. |
 | `muxdock.refreshInterval` | `3` | Refresh interval in seconds while the panel is visible. |
-| `muxdock.fontSize` | `14` | Terminal font size. |
+| `muxdock.fontSize` | `12` | Terminal font size in pixels (8–40); applies immediately. |
 | `muxdock.fontFamily` | Empty | Use the editor's terminal font when empty. |
 | `muxdock.scrollback` | `10000` | Scrollback lines retained for each terminal. |
 | `muxdock.defaultDirectory` | Empty | Use the workspace folder, or the user's home directory when no workspace is open. |
 | `muxdock.executables` | `{}` | Absolute executable paths, keyed by manager ID. |
 | `muxdock.arguments` | `{}` | Additional global arguments for each manager, as arrays. |
 
-Tab and manager-visibility settings apply immediately. Changing a manager's executable or global arguments affects future connections; detach existing clients before switching backend configuration.
+Font, tab and manager-visibility settings apply immediately. Changing a manager's executable or global arguments affects future connections; detach existing clients before switching backend configuration.
 
 For example, show three managers, keep six tabs and connect to a named tmux server:
 

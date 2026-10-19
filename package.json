@@ -164,15 +164,15 @@
         },
         "muxdock.fontSize": {
           "type": "number",
-          "default": 14,
+          "default": 12,
           "minimum": 8,
           "maximum": 40,
-          "description": "终端字体大小。"
+          "description": "终端字体大小（px），修改后立即生效。"
         },
         "muxdock.fontFamily": {
           "type": "string",
           "default": "",
-          "description": "终端字体，留空时使用 VS Code 终端字体。"
+          "description": "终端字体，留空时使用编辑器的终端字体。修改后立即生效。"
         },
         "muxdock.scrollback": {
           "type": "number",

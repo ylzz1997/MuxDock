@@ -18,7 +18,7 @@ const saved = vscode.getState();
 const expanded = new Set(saved?.expanded || ['tmux', 'zmx', 'screen', 'zellij', 'shpool', 'abduco', 'a4']);
 let width = saved?.width || 258;
 let sidebarCollapsed = saved?.sidebarCollapsed === true;
-let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 14, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000 }, launchProfiles: [], selectedLaunchProfile: 'system' };
+let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 12, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000 }, launchProfiles: [], selectedLaunchProfile: 'system' };
 let displayedKey: string | undefined;
 let lastActiveTarget: string | undefined;
 let focusGeneration = 0;
@@ -88,6 +88,7 @@ get('.sidebar-actions').append(
   button('刷新', 'refresh', () => send({ type: 'refresh' })),
   button('更多操作', 'more', () => showMenu(get('.sidebar-actions').getBoundingClientRect().right, 32, [
     { label: snapshot.showUnavailable ? '隐藏未安装的管理器' : '显示未安装的管理器', action: () => send({ type: 'showUnavailable', value: !snapshot.showUnavailable }) },
+    { label: '终端字体设置…', action: () => send({ type: 'settings', fontsOnly: true }) },
     { label: 'MuxDock 设置', action: () => send({ type: 'settings' }) }
   ]))
 );
@@ -218,7 +219,8 @@ function ensureTerminal(info: ConnectionInfo) {
       ...(target ? [{ label: '打开链接', action: () => links.open(target) }, { label: '复制链接地址', action: () => send({ type: 'copy', text: target }) }] : []),
       { label: '复制', disabled: !terminal.hasSelection(), action: () => send({ type: 'copy', text: terminal.getSelection() }) },
       { label: '粘贴', disabled: entry!.closed, action: () => send({ type: 'paste', key: info.key }) },
-      { label: '全选', action: () => terminal.selectAll() }, { label: '清空终端显示', action: () => terminal.clear() }
+      { label: '全选', action: () => terminal.selectAll() }, { label: '清空终端显示', action: () => terminal.clear() },
+      { label: '终端字体设置…', separator: true, action: () => send({ type: 'settings', fontsOnly: true }) }
     ]);
   });
   return entry;

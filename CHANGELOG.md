@@ -2,6 +2,7 @@
 
 ## 0.0.7
 
+- Reduce the default terminal font size to 12px and add direct font-setting entries in the terminal context menu and session panel's More actions menu. Preserve custom font settings and apply changes immediately.
 - Refresh attachment status after clients actually exit, including closed and retained tabs, and repeat in-flight refreshes when connection state changes so stale hollow indicators clear.
 - Keep the tmux current-window green marker anchored to its own icon and clipped with its row while scrolling the session tree.
 - Keep search navigation and close controls visible when the terminal panel is both narrow and short.

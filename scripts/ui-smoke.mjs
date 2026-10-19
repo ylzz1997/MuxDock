@@ -143,6 +143,22 @@ try {
   await input.focus();
   await page.keyboard.type("printf 'MUXDOCK_%s\\n' 'UI_OK'"); await page.keyboard.press('Enter');
   await until(async () => cli(['capture-pane', '-p', '-t', 'my-project:logs']).includes('MUXDOCK_UI_OK'));
+  await until(async () => await frame.locator('.terminal-instance:not([hidden]) .xterm-rows').evaluate(element => getComputedStyle(element).fontSize) === '12px');
+  for (const source of ['terminal', 'sidebar']) {
+    if (source === 'terminal') await frame.locator('.terminal-instance:not([hidden]) .xterm-screen').click({ button: 'right' });
+    else await frame.getByRole('button', { name: '更多操作', exact: true }).click();
+    await frame.getByRole('menuitem', { name: '终端字体设置…', exact: true }).click();
+    const settings = page.locator('.settings-editor');
+    await settings.waitFor({ state: 'visible' });
+    await until(async () => (await settings.textContent()).includes('Font Size') && (await settings.textContent()).includes('Font Family'));
+    await settings.screenshot({ path: `.test-results/font-settings-${source}.png` });
+    await page.keyboard.press('Meta+w');
+    await settings.waitFor({ state: 'hidden' });
+    await frame.locator('.terminal-instance:not([hidden]) .xterm-screen').click();
+    await input.focus();
+    await until(async () => frame.evaluate(() => document.hasFocus() && document.activeElement?.classList.contains('xterm-helper-textarea')));
+  }
+  await writeFile('.test-results/ui-appearance.json', JSON.stringify({ editor: testEditor, checks: ['default terminal text is 12px', 'terminal context menu opens font size and family settings', 'sidebar More actions opens font size and family settings'] }, null, 2));
   await page.keyboard.type("printf '\\033[31mANSI_RED\\033[0m\\n\\033[32mANSI_GREEN\\033[0m\\n\\033[42mANSI_GREEN_BG\\033[0m\\n\\033[38;5;196mANSI_256\\033[0m\\n\\033[38;2;18;171;205mANSI_RGB\\033[0m\\n'");
   await page.keyboard.press('Enter');
   const rendering = await until(async () => frame.evaluate(() => {
@@ -212,7 +228,7 @@ try {
     await delay(100);
   };
   cli(['set-option', '-t', 'my-project', 'status', 'off']);
-  for (const fontSize of [14, 22]) {
+  for (const fontSize of [12, 22]) {
     await updateSettings({ 'muxdock.fontSize': fontSize });
     await until(async () => await frame.locator('.terminal-instance:not([hidden]) .xterm-rows').evaluate(element => getComputedStyle(element).fontSize) === `${fontSize}px`);
     for (const height of [420, 300, 220, 180]) {
@@ -221,8 +237,8 @@ try {
       await assertTerminalFits(`font ${fontSize}, panel ${height}, prompt at bottom`);
     }
   }
-  await updateSettings({ 'muxdock.fontSize': 14 });
-  await until(async () => await frame.locator('.terminal-instance:not([hidden]) .xterm-rows').evaluate(element => getComputedStyle(element).fontSize) === '14px');
+  await updateSettings({ 'muxdock.fontSize': 12 });
+  await until(async () => await frame.locator('.terminal-instance:not([hidden]) .xterm-rows').evaluate(element => getComputedStyle(element).fontSize) === '12px');
   await resizePanel(350);
   await frame.getByRole('button', { name: '搜索终端', exact: true }).click();
   await delay(250);
