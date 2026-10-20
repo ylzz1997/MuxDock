@@ -190,7 +190,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     const location = await resolveFileLink(value, await this.linkDirectories(key));
     if (!location) throw new Error('链接对应的文件或目录不存在。');
     const uri = vscode.Uri.file(location.path);
-    if (location.directory) { await vscode.commands.executeCommand('revealInExplorer', uri); return; }
+    if (location.directory) { await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: true }); return; }
     const position = new vscode.Position((location.line || 1) - 1, (location.column || 1) - 1);
     await vscode.window.showTextDocument(uri, { preview: true, selection: new vscode.Range(position, position) });
   }

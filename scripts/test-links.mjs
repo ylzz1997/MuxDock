@@ -26,7 +26,7 @@ const css = await readFile('node_modules/@xterm/xterm/css/xterm.css', 'utf8') + 
 const browser = await chromium.launch({ headless: true });
 const checks = [];
 try {
-  for (const platform of ['MacIntel', 'Linux x86_64']) {
+  for (const platform of ['MacIntel', 'Win32', 'Linux x86_64']) {
     const context = await browser.newContext({ viewport: { width: 800, height: 460 } });
     await context.addInitScript(platform => Object.defineProperty(navigator, 'platform', { value: platform }), platform);
     const page = await context.newPage();
@@ -68,6 +68,11 @@ try {
     await point('src/main');
     assert.equal(await page.locator('.link-destination').textContent(), 'file:///workspace/src/main.ts#L12C3');
     checks.push(`${platform}: OSC 8 file links and plain file locations`);
+    await render('./project/\r\n');
+    const directory = await point('./project/');
+    await page.keyboard.down(modifier); await page.mouse.click(directory.x, directory.y); await page.keyboard.up(modifier);
+    assert.equal((await opened()).at(-1)?.url, 'file:///workspace/./project/');
+    checks.push(`${platform}: directory paths use the same modifier-click handling as files`);
     const long = 'https://example.test/' + 'segment/'.repeat(15) + 'end';
     await render(long + '\r\n');
     await point('https://');

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Open terminal folder links as projects in a new VS Code or Cursor window with Cmd-click on macOS or Ctrl-click on Windows/Linux.
+
 ## 0.0.8
 
 - Reduce the default terminal font size to 12px and add direct font-setting entries in the terminal context menu and session panel's More actions menu. Preserve custom font settings and apply changes immediately.
