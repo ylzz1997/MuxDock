@@ -54,6 +54,8 @@ export async function checkSessionStatus({ frame, page, cli, until, delay, updat
     });
     await until(async () => clients() === 1);
     await refresh.click(); await refreshDone();
+    // Idle can be observed before the refresh message reaches the host.
+    await session.locator('.other-client').waitFor({ state: 'visible', timeout: 5000 });
     assert.equal(await session.locator('.other-client').count(), 1, 'A real external client must retain its hollow indicator');
     await session.click();
     await until(async () => clients() === 2 && await session.locator('.connection-dot').count() === 1);

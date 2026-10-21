@@ -26,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('muxdock.settings', (fontsOnly = false) => vscode.commands.executeCommand('workbench.action.openSettings', fontsOnly === true ? '@ext:muxdock.muxdock font' : '@ext:muxdock.muxdock')),
     vscode.commands.registerCommand('muxdock.logs', () => output.show()),
     vscode.workspace.onDidChangeConfiguration(event => {
-      if (event.affectsConfiguration('muxdock') || event.affectsConfiguration('terminal.integrated.fontFamily')) provider.configure();
+      if (event.affectsConfiguration('muxdock') || event.affectsConfiguration('terminal.integrated.fontFamily') || event.affectsConfiguration('terminal.integrated.minimumContrastRatio')) provider.configure();
     })
   );
   return { getSnapshot: () => provider.snapshot() };
@@ -101,7 +101,12 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       managers: this.managers, connections: this.connections.list(), activeKey: this.connections.activeKey,
       showUnavailable: config.get('showUnavailable', false), host: vscode.env.remoteName ? `${vscode.env.remoteName} · ${os.hostname()}` : os.hostname(),
       visibleManagers: this.visibleManagers(), showTabs: config.get('showTabs', true), maxTabs: this.maxTabs(),
-      appearance: { fontSize: config.get('fontSize', 12), fontFamily: config.get<string>('fontFamily') || terminal.get<string>('fontFamily') || 'Menlo, Monaco, monospace', scrollback: config.get('scrollback', 10000) },
+      appearance: {
+        fontSize: config.get('fontSize', 12),
+        fontFamily: config.get<string>('fontFamily') || terminal.get<string>('fontFamily') || 'Menlo, Monaco, monospace',
+        scrollback: config.get('scrollback', 10000),
+        minimumContrastRatio: terminal.get('minimumContrastRatio', 4.5)
+      },
       ...launchProfiles(this.launchSettings, this.shells, this.defaultShell)
     };
   }

@@ -18,7 +18,7 @@ const saved = vscode.getState();
 const expanded = new Set(saved?.expanded || ['tmux', 'zmx', 'screen', 'zellij', 'shpool', 'abduco', 'a4']);
 let width = saved?.width || 258;
 let sidebarCollapsed = saved?.sidebarCollapsed === true;
-let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 12, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000 }, launchProfiles: [], selectedLaunchProfile: 'system' };
+let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 12, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000, minimumContrastRatio: 4.5 }, launchProfiles: [], selectedLaunchProfile: 'system' };
 let displayedKey: string | undefined;
 let lastActiveTarget: string | undefined;
 let focusGeneration = 0;

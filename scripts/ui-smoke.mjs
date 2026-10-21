@@ -9,6 +9,7 @@ import { checkTerminalLinks } from './ui-links.mjs';
 import { checkTerminalPaste } from './ui-paste.mjs';
 import { checkTerminalSearch } from './ui-search.mjs';
 import { checkSessionStatus } from './ui-status.mjs';
+import { checkTerminalTheme } from './ui-theme.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -159,7 +160,8 @@ try {
     await until(async () => frame.evaluate(() => document.hasFocus() && document.activeElement?.classList.contains('xterm-helper-textarea')));
   }
   await writeFile('.test-results/ui-appearance.json', JSON.stringify({ editor: testEditor, checks: ['default terminal text is 12px', 'terminal context menu opens font size and family settings', 'sidebar More actions opens font size and family settings'] }, null, 2));
-  await page.keyboard.type("printf '\\033[31mANSI_RED\\033[0m\\n\\033[32mANSI_GREEN\\033[0m\\n\\033[42mANSI_GREEN_BG\\033[0m\\n\\033[38;5;196mANSI_256\\033[0m\\n\\033[38;2;18;171;205mANSI_RGB\\033[0m\\n'");
+  // Use black behind exact-color samples so contrast adjustment is unnecessary.
+  await page.keyboard.type("printf '\\033[31mANSI_RED\\033[0m\\n\\033[32mANSI_GREEN\\033[0m\\n\\033[42mANSI_GREEN_BG\\033[0m\\n\\033[38;5;196;48;2;0;0;0mANSI_256\\033[0m\\n\\033[38;2;18;171;205;48;2;0;0;0mANSI_RGB\\033[0m\\n'");
   await page.keyboard.press('Enter');
   const rendering = await until(async () => frame.evaluate(() => {
     const terminal = document.querySelector('.terminal-instance:not([hidden])');
@@ -181,6 +183,7 @@ try {
   assert.notEqual(rendering.colors.ANSI_GREEN_BG.background, 'rgba(0, 0, 0, 0)', 'ANSI background colors must be visible');
   assert.equal(rendering.colors.ANSI_256.foreground, 'rgb(255, 0, 0)');
   assert.equal(rendering.colors.ANSI_RGB.foreground, 'rgb(18, 171, 205)');
+  await checkTerminalTheme({ frame, page, cli, until, updateSettings, editor: testEditor });
   const linkChecks = await checkTerminalLinks({ frame, page, cli, until, delay });
   await writeFile('.test-results/ui-links.json', JSON.stringify({ editor: testEditor, checks: linkChecks }, null, 2));
   const pasteChecks = await checkTerminalPaste({ frame, page, cli, until, delay });

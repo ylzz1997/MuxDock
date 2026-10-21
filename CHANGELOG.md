@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Match the editor terminal's minimum contrast setting so text remains readable on application backgrounds and light themes; apply setting changes to open terminals immediately.
 - Open terminal folder links as projects in a new VS Code or Cursor window with Cmd-click on macOS or Ctrl-click on Windows/Linux.
 
 ## 0.0.8
