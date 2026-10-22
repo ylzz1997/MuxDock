@@ -4,7 +4,7 @@
 
 - **Display name:** MuxDock
 - **Extension ID:** `muxdock.muxdock`
-- **Version:** `0.0.9`
+- **Version:** `0.0.10`
 - **Publisher / Open VSX namespace:** `muxdock`
 - **Category:** Other
 - **License:** MIT
