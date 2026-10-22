@@ -33,9 +33,19 @@ export function parseTerminalLink(value: string): TerminalLink | undefined {
   return { kind: 'file', path: target, ...(authority ? { authority } : {}), ...(line ? { line } : {}), ...(column ? { column } : {}) };
 }
 
-export interface FileLinkMatch { target: string; start: number; end: number }
-export function findFileLinks(text: string): FileLinkMatch[] {
-  const result: FileLinkMatch[] = [];
+export interface TerminalLinkMatch { target: string; start: number; end: number }
+export function findWebLinks(text: string): TerminalLinkMatch[] {
+  // Keep the punctuation boundaries used by xterm's web-links addon.
+  const pattern = /(https?|HTTPS?):[/]{2}[^\s"'!*(){}|\\\^<>`]*[^\s"':,.!?{}|\\\^~\[\]`()<>]/g;
+  const result: TerminalLinkMatch[] = [];
+  for (const match of text.matchAll(pattern)) {
+    if (parseTerminalLink(match[0])?.kind === 'web') result.push({ target: match[0], start: match.index!, end: match.index! + match[0].length });
+    if (result.length >= 32) break;
+  }
+  return result;
+}
+export function findFileLinks(text: string): TerminalLinkMatch[] {
+  const result: TerminalLinkMatch[] = [];
   // Consume web URLs as whole tokens so their path segments cannot become file links.
   const tokens = /https?:\/\/[^\s<>"'`]+|file:\/\/[^\s<>"'`]+|["'][^"'\r\n]+["']|(?:~\/|\/|\.\.?\/)[^\s<>"'`()\[\]{};,]+(?:\(\d+(?:,\s*\d+)?\))?|(?:[\p{L}\p{N}_@.-]+\/)+[^\s<>"'`()\[\]{};,]+(?:\(\d+(?:,\s*\d+)?\))?|[\p{L}\p{N}_@.-]+\.[\p{L}\p{N}_-]+(?:(?::\d+){1,2}|#L?\d+(?:C\d+)?(?:-L?\d+)?)?/giu;
   for (const match of text.matchAll(tokens)) {

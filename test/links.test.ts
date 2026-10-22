@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { Terminal } from '@xterm/headless';
 import { parseTerminalLink, findFileLinks } from '../src/links';
 import { resolveFileLink } from '../src/file-links';
-import { fileLinksForLine } from '../webview/links';
+import { fileLinksForLine, webLinksForLine } from '../webview/links';
 
 test('terminal destinations accept web and file locations without accepting executable URI schemes', () => {
   assert.deepEqual(parseTerminalLink('https://example.com/a?q=中文#part'), { kind: 'web', uri: 'https://example.com/a?q=%E4%B8%AD%E6%96%87#part' });
@@ -53,5 +53,44 @@ test('file link ranges survive terminal wrapping and Unicode before a path', asy
     assert.equal(startCell.getChars(), '.');
     const endCell = terminal.buffer.active.getLine(1)!.getCell(link.range.end.x - 1)!;
     assert.equal(endCell.getChars(), '4');
+  } finally { terminal.dispose(); }
+});
+
+test('file paths remain whole when a multiplexer repaints wrapped rows without wrap flags', async () => {
+  const terminal = new Terminal({ cols: 24, rows: 12, allowProposedApi: true });
+  try {
+    const target = './src/' + 'long-segment/'.repeat(5) + 'file.ts:12:3';
+    const chunks = target.match(/.{1,24}/g)!;
+    await new Promise<void>(resolve => terminal.write('\x1b[?7l' + chunks.map((chunk, index) => `\x1b[${index + 1};1H${chunk}`).join('') + '\x1b[?7h', resolve));
+    for (let y = 1; y <= chunks.length; y++) {
+      assert.equal(terminal.buffer.active.getLine(y - 1)!.isWrapped, false);
+      assert.equal(fileLinksForLine(terminal, y)[0]?.target, target, `row ${y}`);
+    }
+  } finally { terminal.dispose(); }
+});
+
+test('a space at a physical wrap boundary remains part of a quoted file path', async () => {
+  const terminal = new Terminal({ cols: 24, rows: 12, allowProposedApi: true });
+  try {
+    const target = './' + 'a'.repeat(20) + ' folder/file.ts:12:3';
+    await new Promise<void>(resolve => terminal.write(`"${target}"`, resolve));
+    for (const y of [1, 2]) assert.equal(fileLinksForLine(terminal, y)[0]?.target, target);
+  } finally { terminal.dispose(); }
+});
+
+test('web URLs remain whole across replayed rows and stop at separate URLs/prompts', async () => {
+  const terminal = new Terminal({ cols: 24, rows: 12, allowProposedApi: true });
+  try {
+    const target = 'https://example.test/' + 'segment/'.repeat(6) + 'end?q=one#part';
+    const chunks = target.match(/.{1,24}/g)!;
+    await new Promise<void>(resolve => terminal.write('\x1b[?7l' + chunks.map((chunk, index) => `\x1b[${index + 1};1H${chunk}`).join('') + '\x1b[?7h', resolve));
+    for (let y = 1; y <= chunks.length; y++) assert.equal(webLinksForLine(terminal, y)[0]?.target, target);
+    const fullRowUrl = 'https://example.test/abc';
+    assert.equal(fullRowUrl.length, terminal.cols);
+    await new Promise<void>(resolve => terminal.write(`\x1b[2J\x1b[H${fullRowUrl}\r\nhttps://other.test/\r\n`, resolve));
+    assert.equal(webLinksForLine(terminal, 1)[0]?.target, fullRowUrl);
+    assert.equal(webLinksForLine(terminal, 2)[0]?.target, 'https://other.test/');
+    await new Promise<void>(resolve => terminal.write(`\x1b[2J\x1b[H${fullRowUrl}\r\nhost user$ `, resolve));
+    assert.equal(webLinksForLine(terminal, 1)[0]?.target, fullRowUrl);
   } finally { terminal.dispose(); }
 });

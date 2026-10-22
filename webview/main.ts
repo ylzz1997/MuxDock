@@ -1,7 +1,6 @@
 import { Terminal, type ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
-import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { PowerlineAddon } from './powerline';
 import '@xterm/xterm/css/xterm.css';
@@ -259,7 +258,6 @@ function ensureTerminal(info: ConnectionInfo) {
   terminal.loadAddon(new PowerlineAddon());
   const links = new TerminalLinks(terminal, element, info.key, send);
   terminal.options.linkHandler = links.handler;
-  terminal.loadAddon(new WebLinksAddon(links.activate, { hover: links.hover, leave: links.leave }));
   terminal.options.disableStdin = !!info.closed;
   entry = { terminal, fit, search, links, element, seq: 0, info, closed: !!info.closed, replaying: false }; terminals.set(info.key, entry);
   searchWidget.register(info.key, terminal, search);

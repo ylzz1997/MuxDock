@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.0.11
 
 - Align Powerline separator arrows with the full terminal cell height, including after font changes, selection and redraws.
+- Fix consecutive file drops by preserving the webview drag/drop lifecycle and deferring terminal focus until after each drop.
+- Keep wrapped web URLs and file paths complete when opening them from any continuation row, including multiplexer redraws that lose soft-wrap markers.
 
 ## 0.0.10
 

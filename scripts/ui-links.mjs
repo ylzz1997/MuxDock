@@ -3,6 +3,80 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createServer } from 'node:http';
+
+export async function checkWrappedTerminalLinks({ frame, page, cli, until, delay }) {
+  const directory = path.resolve(`.test-results/wrapped-links-${process.pid}`, ...Array.from({ length: 6 }, (_, i) => `long-directory-${i}-abcdefghijklmnopqrstuvwxyz`));
+  await mkdir(directory, { recursive: true });
+  const file = path.join(directory, 'wrapped-target.ts');
+  await writeFile(file, Array.from({ length: 30 }, (_, i) => `WRAPPED_TARGET_LINE_${i + 1}_abcdefghijklmnopqrstuvwxyz`).join('\n'));
+  const fileText = file + ':12:3';
+  const fileTarget = pathToFileURL(file).href + '#L12C3';
+  const requests = [];
+  const server = createServer((request, response) => {
+    requests.push(request.url);
+    response.setHeader('Connection', 'close');
+    response.setHeader('Content-Type', 'text/html; charset=utf-8');
+    response.end('<title>MuxDock wrapped link test</title>Wrapped link opened successfully.');
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const webPath = '/' + 'long-segment/'.repeat(24) + 'end?complete=1';
+  const web = `http://127.0.0.1:${server.address().port}${webPath}`;
+  const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
+  const rows = frame.locator('.terminal-instance:not([hidden]) .xterm-rows > div');
+  const cols = Number(cli(['display-message', '-p', '-t', 'my-project:logs', '#{pane_width}']).trim());
+  const checks = [];
+  const render = async (value, replay) => {
+    await page.bringToFront();
+    await page.mouse.move(10, 10);
+    const chunks = value.match(new RegExp(`.{1,${cols}}`, 'g'));
+    const output = '\x1b[2J\x1b[H' + (replay ? '\x1b[?7l' + chunks.map((chunk, i) => `\x1b[${i + 1};1H${chunk}`).join('') + '\x1b[?7h' : value) + '\r\n';
+    const script = path.resolve('.test-results/wrapped-link-output.py');
+    await writeFile(script, `import sys\nsys.stdout.write(${JSON.stringify(output)})\nsys.stdout.flush()\n`);
+    cli(['send-keys', '-t', 'my-project:logs', '-l', `python3 ${quote(script)}`]);
+    cli(['send-keys', '-t', 'my-project:logs', 'Enter']);
+    await until(async () => (await rows.allTextContents())[0] === chunks[0]);
+    await delay(250);
+    return chunks;
+  };
+  const hover = async row => {
+    await page.mouse.move(10, 10);
+    const box = await rows.nth(row).boundingBox();
+    const point = { x: box.x + box.width / cols * 3.5, y: box.y + box.height / 2 };
+    await page.mouse.move(point.x, point.y);
+    await frame.getByRole('tooltip').waitFor({ state: 'visible' });
+    return point;
+  };
+  const click = async point => {
+    await page.keyboard.down('Meta'); await page.mouse.click(point.x, point.y); await page.keyboard.up('Meta');
+  };
+  try {
+    for (const replay of [false, true]) {
+      const label = replay ? 'multiplexer replay' : 'soft wrap';
+      const fileRows = await render(fileText, replay);
+      for (let row = 0; row < fileRows.length; row++) {
+        const point = await hover(row);
+        assert.equal(await frame.locator('.link-destination').textContent(), fileTarget, `${label} file row ${row + 1}`);
+        await click(point);
+        await until(async () => (await page.locator('.tab.active').allTextContents()).some(text => text.includes('wrapped-target.ts')));
+        await until(async () => /12\D+3/.test(await page.locator('[id="status.editor.selection"]').textContent()));
+      }
+      checks.push(`${label}: every file row opens the complete path at line 12 column 3`);
+      const webRows = await render(web, replay);
+      for (let row = 0; row < webRows.length; row++) {
+        await hover(row);
+        assert.equal(await frame.locator('.link-destination').textContent(), web, `${label} web row ${row + 1}`);
+      }
+      const count = requests.filter(url => url === webPath).length;
+      await click(await hover(webRows.length - 1));
+      await until(() => requests.filter(url => url === webPath).length > count);
+      await page.bringToFront();
+      checks.push(`${label}: every web row previews the complete URL and clicking the final row requests its complete path and query`);
+    }
+    await frame.locator('.dock').screenshot({ path: `.test-results/wrapped-links-${process.pid}.png` });
+    return checks;
+  } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+}
 
 export async function checkTerminalLinks({ frame, page, cli, until, delay }) {
   const directory = path.resolve(`.test-results/link-fixture-${process.pid}`);

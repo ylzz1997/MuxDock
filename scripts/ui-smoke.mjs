@@ -5,7 +5,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { checkApplicationClipboard, checkSessionScroll, checkTerminalClipboard } from './ui-regressions.mjs';
 import { checkLaunchProfiles, checkRestoredLaunchProfile } from './ui-launch.mjs';
-import { checkTerminalLinks } from './ui-links.mjs';
+import { checkTerminalLinks, checkWrappedTerminalLinks } from './ui-links.mjs';
 import { checkTerminalPaste } from './ui-paste.mjs';
 import { checkTerminalSearch } from './ui-search.mjs';
 import { checkSessionStatus } from './ui-status.mjs';
@@ -123,6 +123,19 @@ try {
     const checks = await checkBatchSessions({ frame, page, cli, until, delay, updateSettings, resizePanel, editor: testEditor, zmx: batchZmx });
     await writeFile(`.test-results/ui-batch-${testEditor}.json`, JSON.stringify({ editor: testEditor, status: 'PASS', checks }, null, 2));
     console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} batch sessions UI: PASS`);
+  } else if (process.env.MUXDOCK_UI_FOCUS === 'links') {
+    await resizePanel(350);
+    await frame.getByRole('treeitem', { name: 'my-project', exact: true }).click();
+    await frame.locator('.connection-status.connected').waitFor();
+    await frame.getByRole('treeitem', { name: '1: logs', exact: true }).click();
+    await until(async () => cli(['display-message', '-p', '-t', 'my-project', '#{window_name}']).trim() === 'logs');
+    const checks = await checkTerminalLinks({ frame, page, cli, until, delay });
+    // Keep the complete wrapped fixture visible even with Cursor's agent pane.
+    await frame.getByRole('button', { name: '收起会话面板', exact: true }).click();
+    await delay(300);
+    checks.push(...await checkWrappedTerminalLinks({ frame, page, cli, until, delay }));
+    await writeFile(`.test-results/ui-links-${testEditor}.json`, JSON.stringify({ editor: testEditor, status: 'PASS', checks }, null, 2));
+    console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} terminal links UI: PASS`);
   } else if (process.env.MUXDOCK_UI_FOCUS === 'drop') {
     await resizePanel(350);
     await frame.getByRole('treeitem', { name: 'my-project', exact: true }).click();

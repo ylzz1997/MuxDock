@@ -1,16 +1,32 @@
 import type { Terminal, IBufferRange, ILink, ILinkHandler, ILinkProvider } from '@xterm/xterm';
-import { findFileLinks, parseTerminalLink } from '../src/links';
+import { findFileLinks, findWebLinks, parseTerminalLink, type TerminalLinkMatch } from '../src/links';
 
-/** Map UTF-16 offsets to terminal cells, including wrapped lines and wide characters. */
-export function fileLinksForLine(terminal: Pick<Terminal, 'buffer'>, y: number): { target: string; range: IBufferRange }[] {
+function linksForLine(terminal: Pick<Terminal, 'buffer'>, y: number, find: (text: string) => TerminalLinkMatch[]): { target: string; range: IBufferRange }[] {
   const buffer = terminal.buffer.active;
+  const continues = (row: number) => {
+    const line = buffer.getLine(row); const previous = buffer.getLine(row - 1);
+    if (!line || !previous) return false;
+    if (line.isWrapped) return true;
+    // zmx reconnects repaint physical rows without retaining isWrapped. A full
+    // row can continue into the next one, but blank rows/new URLs/prompts cannot.
+    const next = line.translateToString(true);
+    if (!next || /^\s*(?:https?:\/\/|file:\/\/|[$#%>❯]\s)|^[^\n]*?\$\s/i.test(next)) return false;
+    const last = previous.getCell(previous.length - 1);
+    return !!last?.getChars() || last?.getWidth() === 0 || line.getCell(0)?.getWidth() === 2 && !!previous.getCell(previous.length - 2)?.getChars();
+  };
   let start = y - 1;
-  while (start > 0 && y - start < 50 && buffer.getLine(start)?.isWrapped) start--;
+  let scanned = 0;
+  while (start > 0 && continues(start)) {
+    scanned += buffer.getLine(start - 1)!.length;
+    if (scanned > 8192) return [];
+    start--;
+  }
   let content = '';
   const cells: { x: number; endX: number; y: number }[] = [];
-  for (let row = start; row < buffer.length && row - start < 50; row++) {
+  for (let row = start; row < buffer.length; row++) {
     const line = buffer.getLine(row);
-    if (!line || row > start && !line.isWrapped) break;
+    if (!line || row > start && !continues(row)) break;
+    if (row - start >= 8192) return [];
     const length = line.translateToString(true).length;
     let offset = 0;
     for (let x = 0; x < line.length && offset < length; x++) {
@@ -22,11 +38,15 @@ export function fileLinksForLine(terminal: Pick<Terminal, 'buffer'>, y: number):
     }
     if (content.length > 8192) return [];
   }
-  return findFileLinks(content).flatMap(match => {
+  return find(content).flatMap(match => {
     const first = cells[match.start]; const last = cells[match.end - 1];
     return first && last && first.y <= y && last.y >= y ? [{ target: match.target, range: { start: { x: first.x, y: first.y }, end: { x: last.endX, y: last.y } } }] : [];
   });
 }
+
+/** Map complete logical links back to cells, including multiplexer redraws. */
+export const fileLinksForLine = (terminal: Pick<Terminal, 'buffer'>, y: number) => linksForLine(terminal, y, findFileLinks);
+export const webLinksForLine = (terminal: Pick<Terminal, 'buffer'>, y: number) => linksForLine(terminal, y, findWebLinks);
 
 type Send = (message: unknown) => void;
 type Candidate = ReturnType<typeof fileLinksForLine>[number];
@@ -41,7 +61,9 @@ export class TerminalLinks implements ILinkProvider {
   private disposables: { dispose(): void }[] = [];
   private readonly isMac = /Mac/i.test(navigator.platform);
   constructor(private readonly terminal: Terminal, private readonly element: HTMLElement, private readonly key: string, private readonly send: Send) {
-    this.disposables.push(terminal.registerLinkProvider(this), terminal.onScroll(() => this.hide()), terminal.onResize(() => this.hide()));
+    this.disposables.push(terminal.registerLinkProvider({ provideLinks: (y, callback) => {
+      callback(this.active ? webLinksForLine(terminal, y).map(candidate => ({ text: candidate.target, range: candidate.range, activate: this.activate, hover: this.hover, leave: this.leave })) : undefined);
+    } }), terminal.registerLinkProvider(this), terminal.onScroll(() => this.hide()), terminal.onResize(() => this.hide()));
     this.listen(element, 'mouseenter', () => this.invalidateHoverCache());
     this.listen(element, 'mousedown', event => {
       const mouse = event as MouseEvent;
