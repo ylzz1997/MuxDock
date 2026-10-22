@@ -186,7 +186,9 @@ function updateBatchToolbar() {
   const supports = (capability: 'kill' | 'detachAll') => targets.every(target => snapshot.managers.find(manager => manager.id === target.manager)?.capabilities[capability]);
   batchDisconnect.disabled = batchPending || !targets.length || !supports('detachAll');
   batchKill.disabled = batchPending || !targets.length || !supports('kill');
-  get('.batch-note').textContent = targets.length && !supports('kill') ? '所选管理器不支持结束会话，可批量断开。' : '断开保留后台任务；结束会停止程序。';
+  const note = get('.batch-note');
+  note.hidden = !targets.length || supports('kill');
+  note.textContent = note.hidden ? '' : '所选管理器不支持结束会话，可批量断开。';
 }
 function toggleSessionSelection(node: string) {
   if (batchPending) return;
