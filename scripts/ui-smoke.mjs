@@ -12,6 +12,7 @@ import { checkSessionStatus } from './ui-status.mjs';
 import { checkTerminalTheme } from './ui-theme.mjs';
 import { checkSessionDetails } from './ui-session-details.mjs';
 import { checkTerminalGlyphs } from './ui-glyphs.mjs';
+import { checkBatchSessions } from './ui-batch.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -40,6 +41,14 @@ const wrapper = path.join(root, '.test-results/ui-tmux');
 await writeFile(wrapper, `#!/usr/bin/python3\nimport os,sys,json,subprocess,time\nlog=${JSON.stringify(path.join(root, '.test-results/ui-tmux-calls.jsonl'))}\nhold=${JSON.stringify(path.join(root, '.test-results/ui-tmux-hold'))}\nwith open(log,'a') as f: f.write(json.dumps(sys.argv[1:])+'\\n')\nif 'list-sessions' in sys.argv:\n r=subprocess.run([${JSON.stringify(tmux)}]+sys.argv[1:],capture_output=True)\n with open(log,'a') as f: f.write(json.dumps({'out':r.stdout.decode(),'err':r.stderr.decode(),'code':r.returncode})+'\\n')\n try:\n  os.rename(hold,hold+'-captured')\n  time.sleep(1.5)\n except FileNotFoundError:\n  pass\n sys.stdout.buffer.write(r.stdout)\n sys.stderr.buffer.write(r.stderr)\n sys.exit(r.returncode)\nos.execv(${JSON.stringify(tmux)},[${JSON.stringify(tmux)}]+sys.argv[1:])\n`);
 await chmod(wrapper, 0o755);
 executables.tmux = wrapper;
+let batchZmx;
+if (process.env.MUXDOCK_UI_FOCUS === 'batch') {
+  const directory = path.join(root, `.test-results/batch-zmx-${process.pid}`);
+  await mkdir(directory, { recursive: true });
+  batchZmx = path.join(root, '.test-results/ui-batch-zmx');
+  await writeFile(batchZmx, `#!/usr/bin/python3\nimport os,sys\nos.environ['ZMX_DIR']=${JSON.stringify(directory)}\nos.execv('/opt/homebrew/bin/zmx',['/opt/homebrew/bin/zmx']+sys.argv[1:])\n`);
+  await chmod(batchZmx, 0o755); executables.zmx = batchZmx;
+}
 await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
   'workbench.startupEditor': 'none', 'workbench.colorTheme': 'Default Dark Modern',
   'chat.disableAIFeatures': true,
@@ -58,7 +67,7 @@ if (installed) {
   console.log(execFileSync(cliPath, ['--user-data-dir', userData, '--extensions-dir', extensionsDirectory, '--install-extension', path.resolve(process.env.MUXDOCK_USE_VSIX), '--force'], { encoding: 'utf8' }));
 }
 const editorEnv = { ...process.env }; delete editorEnv.ELECTRON_RUN_AS_NODE;
-const processCode = spawn(code, ['--user-data-dir', userData, '--extensions-dir', extensionsDirectory, ...(installed ? [] : ['--extensionDevelopmentPath', root]), '--skip-welcome', '--skip-release-notes', '--disable-workspace-trust', `--remote-debugging-port=${port}`, '--new-window', root], { env: editorEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+const processCode = spawn(code, ['--user-data-dir', userData, '--extensions-dir', extensionsDirectory, ...(installed ? [] : ['--extensionDevelopmentPath', root]), ...(testEditor === 'cursor' ? ['--skip-onboarding'] : []), '--skip-welcome', '--skip-release-notes', '--disable-workspace-trust', `--remote-debugging-port=${port}`, '--new-window', root], { env: editorEnv, stdio: ['ignore', 'pipe', 'pipe'] });
 let log = '';
 processCode.stdout.on('data', data => { log += data; }); processCode.stderr.on('data', data => { log += data; });
 let browser;
@@ -108,7 +117,11 @@ try {
     await delay(250);
   };
   const layoutChecks = [];
-  if (process.env.MUXDOCK_UI_FOCUS === 'glyphs') {
+  if (process.env.MUXDOCK_UI_FOCUS === 'batch') {
+    const checks = await checkBatchSessions({ frame, page, cli, until, delay, updateSettings, resizePanel, editor: testEditor, zmx: batchZmx });
+    await writeFile(`.test-results/ui-batch-${testEditor}.json`, JSON.stringify({ editor: testEditor, status: 'PASS', checks }, null, 2));
+    console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} batch sessions UI: PASS`);
+  } else if (process.env.MUXDOCK_UI_FOCUS === 'glyphs') {
     await resizePanel(350);
     await frame.getByRole('treeitem', { name: 'my-project', exact: true }).click();
     await frame.locator('.connection-status.connected').waitFor();

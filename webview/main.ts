@@ -9,6 +9,7 @@ import { MANAGER_IDS, type ConnectionInfo, type ManagerInfo, type SessionDetails
 import { decodeTerminalClipboard } from '../src/clipboard';
 import { TerminalLinks } from './links';
 import { TerminalSearch, SEARCH_MATCH_LIMIT, type SearchFlags } from './search';
+import type { BatchAction, SessionTarget } from '../src/batch-sessions';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): Saved | undefined; setState(state: Saved): void };
 interface Saved { width: number; expanded: string[]; filter?: string; filterOpen?: boolean; sidebarCollapsed?: boolean; searchOptions?: SearchFlags }
@@ -22,6 +23,10 @@ let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavaila
 let displayedKey: string | undefined;
 let lastActiveTarget: string | undefined;
 let focusGeneration = 0;
+let batchMode = false;
+let batchRequest = 0;
+let batchPending = false;
+const selectedSessions = new Set<string>();
 const terminals = new Map<string, { terminal: Terminal; fit: FitAddon; search: SearchAddon; links: TerminalLinks; element: HTMLElement; seq: number; info: ConnectionInfo; closed: boolean; replaying: boolean }>();
 const paths: Record<string, string> = {
   terminal: '<path d="m4 5 4 3-4 3m6 1h3"/>', plus: '<path d="M8 3v10M3 8h10"/>',
@@ -59,7 +64,7 @@ app.innerHTML = `<main class="dock">
   <footer class="terminal-footer"><span class="connection-status">未打开会话</span><span class="host-name"></span></footer>
 </section>
 <div class="splitter" role="separator" aria-label="调整会话树宽度" aria-orientation="vertical" tabindex="0"></div>
-<aside class="sidebar" id="session-sidebar" aria-label="管理器和会话"><header class="sidebar-header"><div class="sidebar-heading"><span class="sidebar-title">会话</span></div><div class="sidebar-actions"></div></header><div class="filter-wrap" id="session-filter" hidden><input class="filter" aria-label="筛选会话" placeholder="筛选会话…" spellcheck="false"></div><div class="tree" role="tree" aria-label="终端管理器"></div><footer class="sidebar-footer"></footer></aside>
+<aside class="sidebar" id="session-sidebar" aria-label="管理器和会话"><header class="sidebar-header"><div class="sidebar-heading"><span class="sidebar-title">会话</span></div><div class="sidebar-actions"></div></header><div class="filter-wrap" id="session-filter" hidden><input class="filter" aria-label="筛选会话" placeholder="筛选会话…" spellcheck="false"></div><div class="tree" role="tree" aria-label="终端管理器"></div><div class="batch-toolbar" role="group" aria-label="批量操作" hidden><div class="batch-selection"><label class="batch-select-all"><input type="checkbox" aria-label="全选当前显示的会话">全选</label><span class="batch-count" role="status"></span></div><div class="batch-actions"></div><div class="batch-note"></div></div><footer class="sidebar-footer"></footer></aside>
 </main>`;
 const get = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const tree = get('.tree');
@@ -71,6 +76,23 @@ const searchWidget = new TerminalSearch(get('.terminal-content'), saved?.searchO
 const sidebar = get('.sidebar');
 const splitter = get('.splitter');
 const tabList = get('.terminal-tabs');
+const batchToolbar = get('.batch-toolbar');
+const selectAll = get<HTMLInputElement>('.batch-select-all input');
+const batchDisconnect = button('批量断开', 'terminal', () => submitBatch('disconnect'), 'batch-button');
+batchDisconnect.replaceChildren(text('span', '批量断开'));
+batchDisconnect.title = '断开所选会话的所有客户端，后台任务继续运行';
+const batchKill = button('批量结束', 'close', () => submitBatch('kill'), 'batch-button danger');
+batchKill.replaceChildren(text('span', '批量结束…'));
+const batchExit = button('退出批量操作', 'close', () => setBatchMode(false));
+get('.batch-selection').append(batchExit);
+get('.batch-actions').append(batchDisconnect, batchKill);
+selectAll.addEventListener('change', () => {
+  for (const checkbox of tree.querySelectorAll<HTMLInputElement>('.session-checkbox')) {
+    const node = checkbox.closest<HTMLElement>('.tree-row')!.dataset.node!;
+    if (selectAll.checked) selectedSessions.add(node); else selectedSessions.delete(node);
+  }
+  renderTree();
+});
 tabList.addEventListener('wheel', event => {
   if (!event.ctrlKey && tabList.scrollWidth > tabList.clientWidth && Math.abs(event.deltaY) > Math.abs(event.deltaX)) { tabList.scrollLeft += event.deltaY; event.preventDefault(); }
 }, { passive: false });
@@ -87,6 +109,7 @@ get('.sidebar-actions').append(
   button('新建会话', 'plus', () => send({ type: 'newSession' })),
   button('刷新', 'refresh', () => send({ type: 'refresh' })),
   button('更多操作', 'more', () => showMenu(get('.sidebar-actions').getBoundingClientRect().right, 32, [
+    { label: batchMode ? '退出批量操作' : '批量操作', disabled: batchPending, action: () => setBatchMode(!batchMode) },
     { label: snapshot.showUnavailable ? '隐藏未安装的管理器' : '显示未安装的管理器', action: () => send({ type: 'showUnavailable', value: !snapshot.showUnavailable }) },
     { label: '终端字体设置…', action: () => send({ type: 'settings', fontsOnly: true }) },
     { label: 'MuxDock 设置', action: () => send({ type: 'settings' }) }
@@ -138,6 +161,44 @@ function setFilterOpen(open: boolean) {
   if (open) { filter.focus(); filter.select(); }
   else { filter.value = ''; renderTree(); filterToggle.focus(); }
   persist();
+}
+function setBatchMode(enabled: boolean) {
+  if (batchPending) return;
+  batchMode = enabled; selectedSessions.clear();
+  renderTree();
+  if (enabled) tree.querySelector<HTMLElement>('.tree-row.level-1')?.focus();
+  else get('[aria-label="更多操作"]').focus();
+}
+function selectedTargets(): SessionTarget[] {
+  return snapshot.managers.flatMap(manager => manager.sessions.filter(session => selectedSessions.has(`${manager.id}/${session.id}`)).map(session => ({ manager: manager.id, session: session.id })));
+}
+function updateBatchToolbar() {
+  batchToolbar.hidden = !batchMode;
+  tree.setAttribute('aria-multiselectable', String(batchMode));
+  const targets = selectedTargets();
+  const visible = [...tree.querySelectorAll<HTMLInputElement>('.session-checkbox')];
+  const checked = visible.filter(checkbox => checkbox.checked).length;
+  selectAll.checked = visible.length > 0 && checked === visible.length;
+  selectAll.indeterminate = checked > 0 && checked < visible.length;
+  selectAll.disabled = batchPending || !visible.length;
+  batchExit.disabled = batchPending;
+  get('.batch-count').textContent = batchPending ? '正在处理…' : `已选 ${targets.length} 项`;
+  const supports = (capability: 'kill' | 'detachAll') => targets.every(target => snapshot.managers.find(manager => manager.id === target.manager)?.capabilities[capability]);
+  batchDisconnect.disabled = batchPending || !targets.length || !supports('detachAll');
+  batchKill.disabled = batchPending || !targets.length || !supports('kill');
+  get('.batch-note').textContent = targets.length && !supports('kill') ? '所选管理器不支持结束会话，可批量断开。' : '断开保留后台任务；结束会停止程序。';
+}
+function toggleSessionSelection(node: string) {
+  if (batchPending) return;
+  if (selectedSessions.has(node)) selectedSessions.delete(node); else selectedSessions.add(node);
+  renderTree();
+}
+function submitBatch(action: BatchAction) {
+  const targets = selectedTargets();
+  if (batchPending || !targets.length) return;
+  batchPending = true; ++batchRequest;
+  renderTree();
+  send({ type: 'batchSessions', action, targets, request: batchRequest });
 }
 function fitCurrent() {
   const entry = current();
@@ -396,6 +457,7 @@ function showMenu(x: number, y: number, items: MenuItem[]) {
 document.addEventListener('pointerdown', event => { if (menu && !menu.contains(event.target as Node) && !(menu.classList.contains('launch-menu') && launchButton.contains(event.target as Node))) closeMenu(); });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && menu) { const launchMenu = menu.classList.contains('launch-menu'); closeMenu(); if (launchMenu) launchButton.focus({ preventScroll: true }); event.preventDefault(); }
+  else if (event.key === 'Escape' && batchMode && !batchPending && sidebar.contains(event.target as Node) && !event.defaultPrevented) { setBatchMode(false); event.preventDefault(); }
   if (menu && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
     const buttons = [...menu.querySelectorAll<HTMLButtonElement>('.menu-item:not(:disabled)')]; const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length;
@@ -435,6 +497,10 @@ function renderTree() {
   const hadTreeFocus = document.hasFocus() && tree.contains(document.activeElement);
   const focused = hadTreeFocus ? (document.activeElement as HTMLElement)?.closest<HTMLElement>('.tree-row')?.dataset.node : undefined;
   const needle = filter.value.trim().toLocaleLowerCase();
+  for (const node of selectedSessions) {
+    const manager = snapshot.managers.find(manager => node.startsWith(`${manager.id}/`));
+    if (manager?.available && !manager.error && !manager.sessions.some(session => node === `${manager.id}/${session.id}`)) selectedSessions.delete(node);
+  }
   const fragment = document.createDocumentFragment(); let shown = 0;
   const visibleManagers = snapshot.visibleManagers.flatMap(id => snapshot.managers.filter(manager => manager.id === id));
   for (const manager of visibleManagers) {
@@ -458,13 +524,21 @@ function renderTree() {
       const node = `${manager.id}/${session.id}`;
       const connection = snapshot.connections.find(info => !info.closed && info.manager === manager.id && info.sessionId === session.id);
       const active = !!connection && connection.key === snapshot.activeKey;
-      const sessionRow = row(node, 1, session.name, 'terminal', manager.capabilities.windows, () => send({ type: 'attach', manager: manager.id, session: session.id }));
+      const sessionRow = row(node, 1, session.name, 'terminal', !batchMode && manager.capabilities.windows, () => batchMode ? toggleSessionSelection(node) : send({ type: 'attach', manager: manager.id, session: session.id }));
       sessionRow.classList.toggle('selected', active); sessionRow.classList.toggle('is-connected', !!connection);
-      sessionRow.setAttribute('aria-selected', String(active)); sessionRow.title = session.detail || `${session.name}${session.attached ? ' · 有客户端连接' : ''}`;
+      sessionRow.setAttribute('aria-selected', String(batchMode ? selectedSessions.has(node) : active)); sessionRow.title = session.detail || `${session.name}${session.attached ? ' · 有客户端连接' : ''}`;
+      if (batchMode) {
+        sessionRow.classList.toggle('batch-selected', selectedSessions.has(node));
+        const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.className = 'session-checkbox'; checkbox.tabIndex = -1;
+        checkbox.setAttribute('aria-label', `选择会话 ${session.name} (${manager.id})`); checkbox.checked = selectedSessions.has(node); checkbox.disabled = batchPending;
+        checkbox.addEventListener('click', event => event.stopPropagation());
+        checkbox.addEventListener('change', () => toggleSessionSelection(node));
+        sessionRow.querySelector('.chevron-space')!.replaceWith(checkbox);
+      }
       if (connection) sessionRow.append(text('span', '●', 'connection-dot'));
       else if (session.attached) sessionRow.append(text('span', '○', 'other-client'));
-      addMenu(sessionRow, sessionMenu(manager, session)); fragment.append(sessionRow);
-      if (manager.capabilities.windows && (expanded.has(node) || needle)) {
+      if (!batchMode) addMenu(sessionRow, sessionMenu(manager, session)); fragment.append(sessionRow);
+      if (!batchMode && manager.capabilities.windows && (expanded.has(node) || needle)) {
         for (const window of session.windows || []) {
           if (needle && !managerMatches && !session.name.toLocaleLowerCase().includes(needle) && !window.name.toLocaleLowerCase().includes(needle)) continue;
           const action = (action: string) => send({ type: 'window', action, manager: manager.id, session: session.id, window: window.id });
@@ -489,6 +563,7 @@ function renderTree() {
   tree.scrollTop = scrollTop; tree.scrollLeft = scrollLeft;
   const available = visibleManagers.filter(manager => manager.available).length;
   get('.sidebar-footer').textContent = `${available} 个可用管理器`;
+  updateBatchToolbar();
 }
 tree.addEventListener('keydown', event => {
   if (!(event.target instanceof HTMLElement) || !event.target.classList.contains('tree-row')) return;
@@ -533,6 +608,12 @@ window.addEventListener('message', event => {
     else renderDetails(message.details);
   }
   else if (message.type === 'refreshing') get('[aria-label="刷新"]').classList.toggle('spinning', message.value);
+  else if (message.type === 'batchResult' && message.request === batchRequest) {
+    batchPending = false;
+    for (const target of message.succeeded as SessionTarget[]) selectedSessions.delete(`${target.manager}/${target.session}`);
+    renderTree();
+    if (message.error) get('.connection-status').textContent = message.error;
+  }
   else if (message.type === 'error') get('.connection-status').textContent = message.message;
 });
 // Load symbols before any terminal measures them, including history replay.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add batch selection from the session panel's More actions menu, with select-all, disconnect-all clients and a single confirmation for ending selected sessions. Preserve selections across refreshes and report partial failures.
 - Bundle a Powerline symbol fallback font so shell prompt arrows and branch symbols render correctly with ordinary terminal fonts in VS Code and Cursor.
 
 ## 0.0.9

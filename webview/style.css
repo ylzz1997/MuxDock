@@ -94,6 +94,19 @@ input:focus { border-color: var(--vscode-focusBorder, #007fd4); }
 .tree-row { display: flex; align-items: center; gap: 5px; height: 29px; padding-right: 8px; cursor: pointer; user-select: none; color: var(--vscode-sideBar-foreground, var(--vscode-foreground)); }
 .tree-row:hover { background: var(--vscode-list-hoverBackground, #ffffff0a); }
 .tree-row.selected { background: var(--vscode-list-inactiveSelectionBackground, #37373d); }
+.tree-row.batch-selected { background: var(--vscode-list-inactiveSelectionBackground, #37373d); outline: 1px solid var(--vscode-focusBorder, #007fd4); outline-offset: -1px; }
+.session-checkbox, .batch-select-all input { appearance: auto; color-scheme: dark; accent-color: var(--vscode-focusBorder, #0078d4); width: 14px; height: 14px; margin: 0 2px 0 0; padding: 0; flex-shrink: 0; cursor: pointer; }
+body:is(.vscode-light, .vscode-high-contrast-light) :is(.session-checkbox, .batch-select-all input) { color-scheme: light; }
+:is(.session-checkbox, .batch-select-all input):focus-visible { outline: 1px solid var(--vscode-focusBorder, #0078d4); outline-offset: 2px; }
+.batch-toolbar { flex-shrink: 0; border-top: 1px solid var(--vscode-panel-border, #2b2b2b); padding: 5px 10px 7px; font-size: 11px; }
+.batch-selection { display: flex; align-items: center; gap: 10px; min-height: 24px; }
+.batch-select-all { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.batch-count { flex: 1; color: var(--vscode-descriptionForeground); white-space: nowrap; }
+.batch-actions { display: flex; gap: 6px; margin-top: 4px; }
+.batch-button { flex: 1; min-width: 0; padding: 5px 3px; border: 1px solid var(--vscode-button-border, var(--vscode-panel-border, #454545)); border-radius: 3px; background: var(--vscode-button-secondaryBackground, #ffffff10); font-size: 11px; white-space: nowrap; }
+.batch-button:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground, #ffffff20); }
+.batch-button.danger { color: var(--vscode-errorForeground, #f48771); }
+.batch-note { color: var(--vscode-descriptionForeground); font-size: 10px; line-height: 1.5; margin-top: 5px; }
 .tree-row:focus { background: var(--vscode-list-activeSelectionBackground, #04395e); color: var(--vscode-list-activeSelectionForeground, white); }
 .level-0 { padding-left: 3px; }
 .level-1 { padding-left: 17px; }

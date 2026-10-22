@@ -11,6 +11,7 @@ import { MANAGER_IDS, isManagerId, validateName, type ManagerInfo, type ManagerI
 import { parseTerminalLink } from './links';
 import { resolveFileLink } from './file-links';
 import { run } from './runner';
+import { parseSessionBatch, runSessionBatch, type SessionTarget } from './batch-sessions';
 
 let activeProvider: DockProvider | undefined;
 export async function deactivate() { await activeProvider?.shutdown(); activeProvider = undefined; }
@@ -44,6 +45,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private ready = false;
   private disposed = false;
   private busy = false;
+  private batchBusy = false;
   private connectionTask: Promise<unknown> = Promise.resolve();
   private activationRevision = 0;
   private readonly defaultShell = systemShell();
@@ -168,6 +170,51 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     const window = session.windows?.find(window => window.id === id);
     if (!window) throw new Error('此 window 已不存在，请刷新列表。');
     return window;
+  }
+  private async batchSessions(message: Record<string, unknown>) {
+    if (this.batchBusy) { this.post({ type: 'batchResult', request: message.request, succeeded: [], error: '已有批量操作正在执行。' }); return; }
+    this.batchBusy = true;
+    let succeeded: SessionTarget[] = [];
+    let error: string | undefined;
+    try {
+      const { action, targets } = parseSessionBatch(message);
+      await this.refresh();
+      const sessions = targets.map(target => {
+        const resolved = this.resolveSession(target.manager, target.session);
+        if (!resolved.adapter.capabilities[action === 'kill' ? 'kill' : 'detachAll']) throw new Error(`${LABELS[target.manager]} 不支持此操作。`);
+        return { ...resolved, target };
+      });
+      if (action === 'kill') {
+        const detail = sessions.map(({ adapter, session }) => `${LABELS[adapter.id]} · ${session.name}`).join('\n');
+        const confirm = await vscode.window.showWarningMessage(`结束选中的 ${sessions.length} 个会话？其中运行的程序也会结束。`, { modal: true, detail }, '批量结束');
+        if (confirm !== '批量结束') return;
+      }
+      ++this.activationRevision;
+      const result = await this.queueConnections(async () => {
+        await this.refresh();
+        try {
+          return await runSessionBatch(targets, async target => {
+            const { adapter, session } = this.resolveSession(target.manager, target.session);
+            if (action === 'kill') {
+              await adapter.kill(session);
+              this.connections.closeSession(adapter.id, session.id);
+            } else {
+              await adapter.detachAll(session);
+              this.connections.retainDetachedSession(adapter.id, session.id);
+            }
+          });
+        } finally { await this.refresh(); }
+      });
+      succeeded = result.succeeded;
+      if (result.failed.length) {
+        error = `批量${action === 'kill' ? '结束' : '断开'}：成功 ${succeeded.length} 个，失败 ${result.failed.length} 个。\n${result.failed.map(({ target, error }) => `${LABELS[target.manager]} · ${sessions.find(item => item.target.manager === target.manager && item.target.session === target.session)?.session.name || target.session}：${error}`).join('\n')}`;
+      }
+    } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
+    finally {
+      this.batchBusy = false;
+      this.post({ type: 'batchResult', request: message.request, succeeded, error });
+      if (error) this.error(new Error(error));
+    }
   }
   private async cwd(): Promise<string> {
     const configured = vscode.workspace.getConfiguration('muxdock').get<string>('defaultDirectory', '');
@@ -333,6 +380,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       }
       return;
     }
+    if (m.type === 'batchSessions') { await this.batchSessions(m); return; }
     if (m.type === 'disconnectAll') {
       ++this.activationRevision;
       await this.queueConnections(async () => {

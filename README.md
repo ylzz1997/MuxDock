@@ -13,6 +13,7 @@ Your sessions belong to the underlying manager. Close a tab, detach or reload th
 - **Session tabs.** Switch between open terminals, close individual tabs, hide the tab bar or set a maximum tab count.
 - **Session details.** Inspect the working directory, process IDs, creation time, current command and attachment information from each session's menu. tmux windows also have their own details view, with information for each pane. Refresh or copy the details without attaching to the session.
 - **Disconnect all clients.** Release every connection to a selected session, including external terminals, while preserving its background programs. Closed tabs keep their output and display a muted red underline and status circle.
+- **Batch session actions.** Choose **批量操作** from the session panel's **…** menu, select sessions across managers, then disconnect their clients or end the sessions with one confirmation. Use the filter and select-all checkbox to narrow the selection; ending sessions requires manager support.
 - **Default shell or command.** Choose the shell used for new sessions, or save a startup command such as `codex` in the terminal toolbar.
 - **tmux window navigation.** Expand a session to select, create, rename or close its windows. Native shortcuts such as `Ctrl+B` keep working.
 - **A compact session tree.** Open the filter with the magnifying glass, then collapse it when you are done. Choose which managers appear and in what order.
