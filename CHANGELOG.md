@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.9
 
 - Add session details for all seven managers, including working paths, process IDs, creation times, current commands and connection information where available; add per-window/pane details for tmux, refresh and copy actions.
 - Add per-session **Disconnect all connections** for all seven managers, releasing external clients while preserving background programs and unrelated sessions.
