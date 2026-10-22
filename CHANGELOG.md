@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Align Powerline separator arrows with the full terminal cell height, including after font changes, selection and redraws.
+
 ## 0.0.10
 
 - Insert shell-quoted file and folder paths when Shift-dragging from the editor Explorer into an active terminal, including multiple selections and remote workspace resources. Shift is required by the editor to forward drops into webviews.

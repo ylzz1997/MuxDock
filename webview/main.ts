@@ -3,6 +3,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { PowerlineAddon } from './powerline';
 import '@xterm/xterm/css/xterm.css';
 import './style.css';
 import { MANAGER_IDS, type ConnectionInfo, type ManagerInfo, type SessionDetails, type SessionInfo, type Snapshot, type WindowInfo } from '../src/model';
@@ -255,6 +256,7 @@ function ensureTerminal(info: ConnectionInfo) {
   terminal.loadAddon(new Unicode11Addon()); terminal.unicode.activeVersion = '11';
   terminal.loadAddon(fit); terminal.loadAddon(search);
   terminal.open(element);
+  terminal.loadAddon(new PowerlineAddon());
   const links = new TerminalLinks(terminal, element, info.key, send);
   terminal.options.linkHandler = links.handler;
   terminal.loadAddon(new WebLinksAddon(links.activate, { hover: links.hover, leave: links.leave }));
