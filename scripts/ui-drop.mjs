@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { nativeExplorerDrop } from './ui-native-drop.mjs';
 
 export async function checkTerminalDrop({ frame, page, cli, until, delay, command, editor }) {
   const directory = path.resolve(`.test-results/drop-fixture-${process.pid}`);
@@ -16,6 +17,12 @@ export async function checkTerminalDrop({ frame, page, cli, until, delay, comman
   const input = target.locator('.xterm-helper-textarea');
   const rows = target.locator('.xterm-rows');
   const checks = [];
+  await frame.evaluate(() => {
+    window.terminalDropEvents = [];
+    window.addEventListener('drop', event => {
+      window.terminalDropEvents.push({ trusted: event.isTrusted, prevented: event.defaultPrevented, terminalFocused: document.activeElement?.classList.contains('xterm-helper-textarea') });
+    });
+  });
   await writeFile(trace, '');
   await writeFile(script, String.raw`import os,sys,termios,tty
 fd=sys.stdin.fileno()
@@ -34,6 +41,7 @@ finally:
   cli(['send-keys', '-t', 'my-project:logs', '-l', `python3 ${quote(script)}`]); cli(['send-keys', '-t', 'my-project:logs', 'Enter']);
   const verify = async (name, action, paths) => {
     await writeFile(trace, '');
+    const previousDrops = await frame.evaluate(() => window.terminalDropEvents.length);
     await action();
     const text = expectedPaths(paths);
     const expected = `\x1b[200~${text}\x1b[201~`;
@@ -42,6 +50,13 @@ finally:
     const received = await readFile(trace, 'utf8');
     await writeFile(`.test-results/drop-observation-${editor}.json`, JSON.stringify({ name, paths, expected, received }, null, 2));
     assert.equal(received, expected, name);
+    const drops = await frame.evaluate(() => window.terminalDropEvents);
+    assert.equal(drops.length, previousDrops + 1, 'The webview shell observes each drop exactly once');
+    assert.equal(drops.at(-1).prevented, true, 'Handled drops do not trigger native text insertion');
+    if (!name.includes('fallback')) {
+      assert.equal(drops.at(-1).trusted, true, 'Explorer drops use trusted browser events');
+      assert.equal(drops.at(-1).terminalFocused, false, 'Terminal focus waits until the drop has reached the webview shell');
+    }
     assert.equal(await input.evaluate(element => document.activeElement === element), true, 'Drop focuses the terminal');
     checks.push(name);
   };
@@ -56,27 +71,14 @@ finally:
   const drag = async (file, preserveSelection = false) => {
     await source(file).scrollIntoViewIfNeeded();
     if (!preserveSelection) await source(file).click();
-    // Obtain the real Explorer transfer data. Playwright mouse drags lose events
-    // across Electron's process boundary, so bridge that boundary in the test.
-    const items = await source(file).evaluate(element => {
-      const dataTransfer = new DataTransfer();
-      element.dispatchEvent(new DragEvent('dragstart', { dataTransfer, bubbles: true, cancelable: true }));
-      const items = [...dataTransfer.types].map(type => [type, dataTransfer.getData(type)]);
-      element.dispatchEvent(new DragEvent('dragend', { dataTransfer, bubbles: true }));
-      return items;
-    });
-    await writeFile(`.test-results/drop-explorer-payload-${editor}.json`, JSON.stringify({ file, items }, null, 2));
-    assert.ok(items.some(([type]) => ['resourceurls', 'codefiles', 'text/uri-list', 'application/vnd.code.uri-list'].includes(type)), 'Use the actual Explorer drag payload');
-    await target.evaluate((element, items) => {
-      const dataTransfer = new DataTransfer();
-      for (const [type, value] of items) dataTransfer.setData(type, value);
-      for (const type of ['dragenter', 'dragover', 'drop']) element.dispatchEvent(new DragEvent(type, { dataTransfer, shiftKey: true, bubbles: true, cancelable: true }));
-    }, items);
+    await nativeExplorerDrop({ page, frame, source: source(file), target, delay });
   };
   try {
     await until(async () => (await rows.textContent()).includes('DROP_INPUT_READY'));
     await reveal(files[0]);
     await verify('Explorer file drag inserts its path once without Enter', () => drag(files[0]), [files[0]]);
+    await verify('A second drop of the same Explorer file inserts its path again', () => drag(files[0]), [files[0]]);
+    await verify('A third drop of the same Explorer file inserts its path again', () => drag(files[0]), [files[0]]);
     await verify('Explorer Unicode/space/quote/dollar file drag preserves one shell argument', () => drag(files[1]), [files[1]]);
     await verify('Explorer folder drag inserts its path', () => drag(folder), [folder]);
     await source(files[0]).click(); await source(files[1]).click({ modifiers: ['Meta'] });
@@ -101,7 +103,7 @@ finally:
   } finally {
     cli(['send-keys', '-t', 'my-project:logs', 'C-]']);
     await until(async () => (await rows.textContent()).includes('DROP_INPUT_DONE'));
-    await writeFile(`.test-results/terminal-drop-${editor}.json`, JSON.stringify({ editor, checks }, null, 2));
+    await writeFile(`.test-results/terminal-drop-${editor}.json`, JSON.stringify({ editor, mode: 'trusted browser drag with OOPIF routing', checks, events: await frame.evaluate(() => window.terminalDropEvents) }, null, 2));
   }
   return checks;
 }

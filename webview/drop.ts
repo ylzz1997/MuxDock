@@ -50,7 +50,8 @@ export function attachTerminalDrop(element: HTMLElement, terminal: Terminal, ena
   const clear = () => element.classList.remove('file-drop-target');
   for (const type of ['dragenter', 'dragover'] as const) element.addEventListener(type, event => {
     if (!supported(event.dataTransfer)) return;
-    event.preventDefault(); event.stopPropagation();
+    // Let the webview shell observe the drag lifecycle as well.
+    event.preventDefault();
     const accept = enabled();
     event.dataTransfer!.dropEffect = accept ? 'copy' : 'none';
     element.classList.toggle('file-drop-target', accept);
@@ -62,11 +63,12 @@ export function attachTerminalDrop(element: HTMLElement, terminal: Terminal, ena
   element.addEventListener('drop', event => {
     clear();
     if (!supported(event.dataTransfer)) return;
-    event.preventDefault(); event.stopPropagation();
+    event.preventDefault();
     if (!enabled()) return;
     const paths = droppedPaths(event.dataTransfer!);
     if (!paths.length) return;
-    terminal.focus();
     terminal.paste(droppedPathText(paths));
+    // Switching focus during drop can interrupt Electron's source cleanup.
+    requestAnimationFrame(() => { if (element.isConnected && enabled()) terminal.focus(); });
   });
 }

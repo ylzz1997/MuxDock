@@ -6,6 +6,7 @@
 
 ## 0.0.10
 
+- Preserve drag/drop event propagation to the webview shell and defer terminal focus until after the drop, so consecutive file drops keep working.
 - Insert shell-quoted file and folder paths when Shift-dragging from the editor Explorer into an active terminal, including multiple selections and remote workspace resources. Shift is required by the editor to forward drops into webviews.
 - Add batch selection from the session panel's More actions menu, with select-all, disconnect-all clients and a single confirmation for ending selected sessions. Preserve selections across refreshes and report partial failures.
 - Bundle a Powerline symbol fallback font so shell prompt arrows and branch symbols render correctly with ordinary terminal fonts in VS Code and Cursor.
