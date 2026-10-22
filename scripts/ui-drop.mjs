@@ -19,6 +19,11 @@ export async function checkTerminalDrop({ frame, page, cli, until, delay, comman
   const checks = [];
   await frame.evaluate(() => {
     window.terminalDropEvents = [];
+    window.terminalDragTrace = [];
+    for (const type of ['dragenter', 'dragover', 'dragleave', 'drop']) window.addEventListener(type, event => {
+      window.terminalDragTrace.push({ type, shift: event.shiftKey, types: [...event.dataTransfer?.types || []], allowed: event.dataTransfer?.effectAllowed, effect: event.dataTransfer?.dropEffect, prevented: event.defaultPrevented, target: event.target?.className });
+      if (window.terminalDragTrace.length > 1000) window.terminalDragTrace.shift();
+    });
     window.addEventListener('drop', event => {
       window.terminalDropEvents.push({ trusted: event.isTrusted, prevented: event.defaultPrevented, terminalFocused: document.activeElement?.classList.contains('xterm-helper-textarea') });
     });
@@ -68,10 +73,10 @@ finally:
     await page.getByText(path.basename(file), { exact: true }).last().waitFor({ state: 'visible' });
   };
   const source = file => page.locator('.explorer-folders-view .monaco-list-row').filter({ has: page.locator(`[aria-label="${file.replace(process.env.HOME, '~').replaceAll('"', '\\"')}"]`) }).first();
-  const drag = async (file, preserveSelection = false) => {
+  const drag = async (file, preserveSelection = false, destination = target, options = {}) => {
     await source(file).scrollIntoViewIfNeeded();
     if (!preserveSelection) await source(file).click();
-    await nativeExplorerDrop({ page, frame, source: source(file), target, delay });
+    await nativeExplorerDrop({ page, frame, source: source(file), target: destination, delay, ...options });
   };
   try {
     await until(async () => (await rows.textContent()).includes('DROP_INPUT_READY'));
@@ -79,6 +84,10 @@ finally:
     await verify('Explorer file drag inserts its path once without Enter', () => drag(files[0]), [files[0]]);
     await verify('A second drop of the same Explorer file inserts its path again', () => drag(files[0]), [files[0]]);
     await verify('A third drop of the same Explorer file inserts its path again', () => drag(files[0]), [files[0]]);
+    await verify('Pressing Shift after reaching MuxDock inserts the path', () => drag(files[0], false, target, { shiftInside: true }), [files[0]]);
+    await verify('Dropping on the Shift hint inserts the path', () => drag(files[0], false, frame.locator('.drop-hint'), { shiftInside: true }), [files[0]]);
+    await verify('Dropping on the terminal top padding inserts the path', () => drag(files[0], false, frame.locator('.terminal-content'), { position: { x: .5, y: .01 } }), [files[0]]);
+    await verify('Dropping on the terminal header inserts the path', () => drag(files[0], false, frame.locator('.terminal-header'), { shiftInside: true }), [files[0]]);
     await verify('Explorer Unicode/space/quote/dollar file drag preserves one shell argument', () => drag(files[1]), [files[1]]);
     await verify('Explorer folder drag inserts its path', () => drag(folder), [folder]);
     await source(files[0]).click(); await source(files[1]).click({ modifiers: ['Meta'] });
@@ -103,7 +112,7 @@ finally:
   } finally {
     cli(['send-keys', '-t', 'my-project:logs', 'C-]']);
     await until(async () => (await rows.textContent()).includes('DROP_INPUT_DONE'));
-    await writeFile(`.test-results/terminal-drop-${editor}.json`, JSON.stringify({ editor, mode: 'trusted browser drag with OOPIF routing', checks, events: await frame.evaluate(() => window.terminalDropEvents) }, null, 2));
+    await writeFile(`.test-results/terminal-drop-${editor}.json`, JSON.stringify({ editor, mode: 'trusted browser drag with OOPIF routing', checks, events: await frame.evaluate(() => window.terminalDropEvents), trace: await frame.evaluate(() => window.terminalDragTrace) }, null, 2));
   }
   return checks;
 }

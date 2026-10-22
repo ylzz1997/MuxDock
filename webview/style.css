@@ -46,7 +46,9 @@ button:focus-visible, [tabindex]:focus-visible { outline: 1px solid var(--vscode
 .terminal-content { flex: 1; min-height: 0; position: relative; overflow: hidden; container-type: size; }
 /* FitAddon measures the instance's full size; keep its spacing outside that box. */
 .terminal-hosts { position: absolute; inset: 10px 6px 4px 12px; }
-.terminal-instance.file-drop-target { outline: 1px solid var(--vscode-focusBorder, #007fd4); outline-offset: -1px; background: var(--vscode-list-dropBackground, #007fd422); }
+.terminal-area.file-drop-target { outline: 1px solid var(--vscode-focusBorder, #007fd4); outline-offset: -1px; }
+.terminal-area.file-drop-target .terminal-content { background: var(--vscode-list-dropBackground, #007fd422); }
+.terminal-area.file-drop-target .drop-hint { color: var(--vscode-focusBorder, #007fd4); }
 .terminal-instance { width: 100%; height: 100%; }
 .xterm { height: 100%; }
 .xterm-rows .muxdock-powerline { position: relative; font-size: 0; letter-spacing: 0; }

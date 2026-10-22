@@ -45,30 +45,34 @@ export function droppedPathText(paths: string[]): string {
   return paths.map(path => /^[\w/.:@%+=,-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`).join(' ');
 }
 
-export function attachTerminalDrop(element: HTMLElement, terminal: Terminal, enabled: () => boolean): void {
+export function attachTerminalDrop(element: HTMLElement, current: () => Pick<Terminal, 'paste' | 'focus'> | undefined): () => void {
   const supported = (transfer: DataTransfer | null) => transfer?.types.some(type => formats.includes(type.toLowerCase()));
-  const clear = () => element.classList.remove('file-drop-target');
+  const highlight = (accept: boolean) => element.classList.toggle('file-drop-target', accept);
+  const clear = () => highlight(false);
   for (const type of ['dragenter', 'dragover'] as const) element.addEventListener(type, event => {
     if (!supported(event.dataTransfer)) return;
     // Let the webview shell observe the drag lifecycle as well.
     event.preventDefault();
-    const accept = enabled();
+    const accept = !!current();
     event.dataTransfer!.dropEffect = accept ? 'copy' : 'none';
-    element.classList.toggle('file-drop-target', accept);
-  });
+    highlight(accept);
+  }, true);
   element.addEventListener('dragleave', event => {
     if (!(event.relatedTarget instanceof Node) || !element.contains(event.relatedTarget)) clear();
   });
   element.addEventListener('dragend', clear);
+  window.addEventListener('blur', clear);
   element.addEventListener('drop', event => {
     clear();
     if (!supported(event.dataTransfer)) return;
     event.preventDefault();
-    if (!enabled()) return;
+    const terminal = current();
+    if (!terminal) return;
     const paths = droppedPaths(event.dataTransfer!);
     if (!paths.length) return;
     terminal.paste(droppedPathText(paths));
     // Switching focus during drop can interrupt Electron's source cleanup.
-    requestAnimationFrame(() => { if (element.isConnected && enabled()) terminal.focus(); });
-  });
+    requestAnimationFrame(() => { if (element.isConnected && current() === terminal) terminal.focus(); });
+  }, true);
+  return clear;
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Accept file drops across the whole active terminal area, including its header, footer and padding; highlight the drop area and clarify when to press Shift.
+
 ## 0.0.11
 
 - Align Powerline separator arrows with the full terminal cell height, including after font changes, selection and redraws.

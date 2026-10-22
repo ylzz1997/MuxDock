@@ -62,7 +62,7 @@ app.innerHTML = `<main class="dock">
 <section class="terminal-area" aria-label="终端">
   <header class="terminal-header"><div class="terminal-heading"></div><div class="terminal-tabs" role="tablist" aria-label="已打开的终端" hidden></div><div class="terminal-actions"></div></header>
   <div class="terminal-content"><div class="welcome"><div class="welcome-symbol"></div><h1>选择一个会话</h1><p>从右侧连接已有会话，<br>或创建一个新的终端会话。</p><button class="primary new-session">新建会话</button><span class="welcome-note">断开连接后，任务继续运行</span></div><div class="terminal-hosts" role="tabpanel" aria-label="终端内容"></div></div>
-  <footer class="terminal-footer"><span class="connection-status">未打开会话</span><span class="drop-hint" title="按住 Shift 从左侧文件栏拖入文件或文件夹，可多选">Shift 拖入路径</span><span class="host-name"></span></footer>
+  <footer class="terminal-footer"><span class="connection-status">未打开会话</span><span class="drop-hint" title="先从文件栏开始拖动，再按住 Shift 移入终端；出现高亮后松手，可多选文件或文件夹">拖动后按 Shift</span><span class="host-name"></span></footer>
 </section>
 <div class="splitter" role="separator" aria-label="调整会话树宽度" aria-orientation="vertical" tabindex="0"></div>
 <aside class="sidebar" id="session-sidebar" aria-label="管理器和会话"><header class="sidebar-header"><div class="sidebar-heading"><span class="sidebar-title">会话</span></div><div class="sidebar-actions"></div></header><div class="filter-wrap" id="session-filter" hidden><input class="filter" aria-label="筛选会话" placeholder="筛选会话…" spellcheck="false"></div><div class="tree" role="tree" aria-label="终端管理器"></div><div class="batch-toolbar" role="group" aria-label="批量操作" hidden><div class="batch-selection"><label class="batch-select-all"><input type="checkbox" aria-label="全选当前显示的会话">全选</label><span class="batch-count" role="status"></span></div><div class="batch-actions"></div><div class="batch-note"></div></div><footer class="sidebar-footer"></footer></aside>
@@ -70,6 +70,11 @@ app.innerHTML = `<main class="dock">
 const get = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const tree = get('.tree');
 const terminalHosts = get('.terminal-hosts');
+// Include the header, footer and padding, rather than only xterm's inner box.
+const clearTerminalDrop = attachTerminalDrop(get('.terminal-area'), () => {
+  const entry = current();
+  return entry && !entry.closed ? entry.terminal : undefined;
+});
 const filter = get<HTMLInputElement>('.filter');
 const searchWidget = new TerminalSearch(get('.terminal-content'), saved?.searchOptions, () => persist(), () => {
   if (current()) current()!.terminal.focus(); else get('[aria-label="搜索终端"]').focus();
@@ -270,7 +275,6 @@ function ensureTerminal(info: ConnectionInfo) {
     return true;
   });
   terminal.onData(data => { if (!entry!.closed) send({ type: 'input', key: info.key, data }); });
-  attachTerminalDrop(element, terminal, () => info.key === displayedKey && !entry!.closed);
   terminal.onResize(({ cols, rows }) => send({ type: 'resize', key: info.key, cols, rows }));
   terminal.attachCustomKeyEventHandler(event => {
     if (event.type !== 'keydown') return true;
@@ -303,11 +307,11 @@ function updateTerminal() {
   const entry = current();
   for (const [key, terminal] of terminals) {
     terminal.element.hidden = key !== displayedKey;
-    if (key !== displayedKey || terminal.closed) terminal.element.classList.remove('file-drop-target');
     terminal.links.setActive(key === displayedKey);
   }
   get('.welcome').hidden = !!entry;
   terminalHosts.hidden = !entry;
+  if (!entry || entry.closed) clearTerminalDrop();
   get('.terminal-heading').replaceChildren(icon('terminal'), text('span', entry?.info.name || 'MuxDock', 'terminal-title'));
   if (entry) get('.terminal-heading').append(text('span', entry.info.manager, 'manager-badge'));
   renderTabs();
