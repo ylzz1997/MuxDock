@@ -11,6 +11,7 @@ import { checkTerminalSearch } from './ui-search.mjs';
 import { checkSessionStatus } from './ui-status.mjs';
 import { checkTerminalTheme } from './ui-theme.mjs';
 import { checkSessionDetails } from './ui-session-details.mjs';
+import { checkTerminalGlyphs } from './ui-glyphs.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -107,6 +108,14 @@ try {
     await delay(250);
   };
   const layoutChecks = [];
+  if (process.env.MUXDOCK_UI_FOCUS === 'glyphs') {
+    await resizePanel(350);
+    await frame.getByRole('treeitem', { name: 'my-project', exact: true }).click();
+    await frame.locator('.connection-status.connected').waitFor();
+    await frame.getByRole('treeitem', { name: '1: logs', exact: true }).click();
+    await until(async () => cli(['display-message', '-p', '-t', 'my-project', '#{window_name}']).trim() === 'logs');
+    await checkTerminalGlyphs({ frame, page, cli, until, updateSettings, editor: testEditor });
+  } else {
   const statusChecks = await checkSessionStatus({ frame, page, cli, until, delay, updateSettings, resizePanel });
   await writeFile('.test-results/ui-status.json', JSON.stringify({ editor: testEditor, checks: statusChecks }, null, 2));
   const detailsChecks = await checkSessionDetails({ frame, page, cli, until, delay, updateSettings, resizePanel, editor: testEditor });
@@ -191,6 +200,7 @@ try {
   assert.equal(rendering.colors.ANSI_256.foreground, 'rgb(255, 0, 0)');
   assert.equal(rendering.colors.ANSI_RGB.foreground, 'rgb(18, 171, 205)');
   await checkTerminalTheme({ frame, page, cli, until, updateSettings, editor: testEditor });
+  await checkTerminalGlyphs({ frame, page, cli, until, updateSettings, editor: testEditor });
   const linkChecks = await checkTerminalLinks({ frame, page, cli, until, delay });
   await writeFile('.test-results/ui-links.json', JSON.stringify({ editor: testEditor, checks: linkChecks }, null, 2));
   const pasteChecks = await checkTerminalPaste({ frame, page, cli, until, delay });
@@ -443,6 +453,7 @@ try {
   await writeFile('.test-results/ui-launch.json', JSON.stringify({ editor: testEditor, ...launchChecks }, null, 2));
   await writeFile('.test-results/ui.json', JSON.stringify({ status: 'PASS', editor: testEditor, installedVsix: installed, layoutChecks, terminalLayoutChecks, rendering, checks: ['session panel collapse expands terminal without disconnecting clients', 'terminal input and tab switching work with the session panel hidden', 'session panel restores width and filter with keyboard toggle', 'session panel visibility and width survive webview reload', 'cancel ending a session preserves backend and active tab', 'ending an inactive session removes only its tab', 'ending the active session selects a remaining tab', 'ending the last session clears terminal and shows welcome', 'terminal last row and cursor fit at four heights and two font sizes', 'no horizontal terminal overflow', 'terminal fits with search expanded and tmux status bar', 'filter toggles below header and clears on close/Escape', 'tabs switch existing clients', 'tab keyboard navigation', 'hide/show tabs applies immediately', 'FIFO tab eviction preserves backend sessions', 'lower maxTabs applies immediately', 'closing last tab shows welcome', 'manager visibility and order apply immediately', 'hidden manager terminal remains usable', 'exited tab retains last output', 'ANSI foreground and background colors', '256-color and truecolor rendering', 'xterm dynamic styles permitted by CSP', 'welcome stays inside content at five panel heights', 'new session button reachable at five panel heights', 'clear empty connection status', 'extension activation', 'real webview tree', 'tmux window click', 'terminal input verified by capture-pane', 'detach preserves session', 'reattach', 'Ctrl+B c passthrough', 'external window sync', 'window rename menu', 'create from manager row', 'reuse existing session connection'], screenshot: 'vscode-muxdock.png' }, null, 2));
   console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} UI: PASS`);
+  }
   }
 } catch (error) {
   for (const target of ['my-project:logs', 'secondary']) {

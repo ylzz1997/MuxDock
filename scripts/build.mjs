@@ -7,7 +7,7 @@ await mkdir('dist', { recursive: true });
 await mkdir('artifacts', { recursive: true });
 const options = [
   { entryPoints: ['src/extension.ts'], outfile: 'dist/extension.cjs', bundle: true, platform: 'node', format: 'cjs', target: 'node20', external: ['vscode', 'node-pty'], sourcemap: true },
-  { entryPoints: ['webview/main.ts'], outfile: 'dist/webview.js', bundle: true, platform: 'browser', format: 'iife', target: 'es2022', sourcemap: true }
+  { entryPoints: ['webview/main.ts'], outfile: 'dist/webview.js', bundle: true, platform: 'browser', format: 'iife', target: 'es2022', sourcemap: true, loader: { '.otf': 'file' } }
 ];
 // Keep the native module adjacent to the extension; do not load VS Code's private dependencies.
 const nativeRoot = 'dist/node_modules/node-pty';
@@ -32,6 +32,7 @@ for (const architecture of ['arm64', 'x64']) {
 }
 await cp('src/pty-host.py', 'dist/pty-host.py');
 await cp('src/session-processes.py', 'dist/session-processes.py');
+await cp('media/fonts/LICENSE-Powerline.txt', 'dist/LICENSE-Powerline.txt');
 if (process.argv.includes('--watch')) {
   for (const option of options) { const ctx = await context(option); await ctx.watch(); }
 } else {

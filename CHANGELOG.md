@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Bundle a Powerline symbol fallback font so shell prompt arrows and branch symbols render correctly with ordinary terminal fonts in VS Code and Cursor.
+
 ## 0.0.9
 
 - Add session details for all seven managers, including working paths, process IDs, creation times, current commands and connection information where available; add per-window/pane details for tmux, refresh and copy actions.

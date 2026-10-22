@@ -1,3 +1,8 @@
+@font-face {
+  font-family: 'MuxDock Powerline';
+  src: url('../media/fonts/PowerlineSymbols.otf') format('opentype');
+  unicode-range: U+E0A0-E0A2, U+E0B0-E0B3;
+}
 :root { color-scheme: light dark; --muxdock-disconnected: #c47777; }
 body.vscode-light { --muxdock-disconnected: #a95454; }
 body.vscode-high-contrast, body.vscode-high-contrast-light { --muxdock-disconnected: var(--vscode-errorForeground, #c47777); }

@@ -165,6 +165,11 @@ filter.addEventListener('input', () => { renderTree(); persist(); });
 filter.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); setFilterOpen(false); } });
 
 function current() { return displayedKey ? terminals.get(displayedKey) : undefined; }
+function appearance() {
+  // The DOM renderer needs a font for Powerline's private-use characters.
+  // Keep user fonts first, and supply the bundled symbols when they lack them.
+  return { ...snapshot.appearance, fontFamily: `${snapshot.appearance.fontFamily}, "MuxDock Powerline"` };
+}
 function theme(): ITheme {
   const style = getComputedStyle(document.body);
   const color = (name: string, fallback: string) => style.getPropertyValue(`--vscode-terminal-${name}`).trim() || fallback;
@@ -181,7 +186,7 @@ function ensureTerminal(info: ConnectionInfo) {
   const element = document.createElement('div'); element.className = 'terminal-instance'; element.hidden = true;
   terminalHosts.append(element);
   // Unicode11Addon needs the Unicode API so emoji widths match modern backends.
-  const terminal = new Terminal({ ...snapshot.appearance, cursorBlink: true, lineHeight: 1.16, theme: theme(), allowProposedApi: true, macOptionIsMeta: true, macOptionClickForcesSelection: true });
+  const terminal = new Terminal({ ...appearance(), cursorBlink: true, lineHeight: 1.16, theme: theme(), allowProposedApi: true, macOptionIsMeta: true, macOptionClickForcesSelection: true });
   const fit = new FitAddon(); const search = new SearchAddon({ highlightLimit: SEARCH_MATCH_LIMIT });
   terminal.loadAddon(new Unicode11Addon()); terminal.unicode.activeVersion = '11';
   terminal.loadAddon(fit); terminal.loadAddon(search);
@@ -248,7 +253,7 @@ function updateTerminal() {
   if (launchButton.dataset.profile !== snapshot.selectedLaunchProfile || launchButton.querySelector('.launch-name')?.textContent !== (profile?.name || 'shell')) launchButton.replaceChildren(icon('terminal'), text('span', profile?.name || 'shell', 'launch-name'));
   launchButton.title = `新建会话默认启动项：${profile?.name || 'shell'}${profile ? `（${profile.detail}）` : ''}`;
   launchButton.dataset.profile = snapshot.selectedLaunchProfile;
-  for (const terminal of terminals.values()) { Object.assign(terminal.terminal.options, snapshot.appearance); }
+  for (const terminal of terminals.values()) { Object.assign(terminal.terminal.options, appearance()); }
   requestAnimationFrame(fitCurrent);
 }
 let tabSignature = '';
@@ -530,4 +535,7 @@ window.addEventListener('message', event => {
   else if (message.type === 'refreshing') get('[aria-label="刷新"]').classList.toggle('spinning', message.value);
   else if (message.type === 'error') get('.connection-status').textContent = message.message;
 });
-send({ type: 'ready' });
+// Load symbols before any terminal measures them, including history replay.
+void document.fonts.load('12px "MuxDock Powerline"', '\ue0b0').catch(error => {
+  console.warn('MuxDock could not load its Powerline symbol font', error);
+}).then(() => send({ type: 'ready' }));
