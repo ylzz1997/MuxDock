@@ -10,6 +10,7 @@ Your sessions belong to the underlying manager. Close a tab, detach or reload th
 
 - **Seven managers in one place.** Discover installed tools and browse their existing sessions without replacing their configuration.
 - **A real interactive terminal.** Keep native keyboard shortcuts, pane layouts, status bars, shell prompts, ANSI colors and truecolor output.
+- **Drag files into the terminal.** Hold **Shift** while dragging files or folders from the editor Explorer into MuxDock (VS Code/Cursor require Shift to forward drops to extension webviews). Multiple selections are separated by spaces, special characters are shell-quoted, and paths are inserted without pressing Enter.
 - **Session tabs.** Switch between open terminals, close individual tabs, hide the tab bar or set a maximum tab count.
 - **Session details.** Inspect the working directory, process IDs, creation time, current command and attachment information from each session's menu. tmux windows also have their own details view, with information for each pane. Refresh or copy the details without attaching to the session.
 - **Disconnect all clients.** Release every connection to a selected session, including external terminals, while preserving its background programs. Closed tabs keep their output and display a muted red underline and status circle.

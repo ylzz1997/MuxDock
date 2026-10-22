@@ -13,6 +13,7 @@ import { checkTerminalTheme } from './ui-theme.mjs';
 import { checkSessionDetails } from './ui-session-details.mjs';
 import { checkTerminalGlyphs } from './ui-glyphs.mjs';
 import { checkBatchSessions } from './ui-batch.mjs';
+import { checkTerminalDrop } from './ui-drop.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -53,6 +54,7 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
   'workbench.startupEditor': 'none', 'workbench.colorTheme': 'Default Dark Modern',
   'chat.disableAIFeatures': true,
   'security.workspace.trust.enabled': false, 'window.zoomLevel': 0,
+  'explorer.stickyScroll.enabled': false,
   'muxdock.arguments': { tmux: ['-S', socket, '-f', '/dev/null'] },
   'muxdock.executables': executables, 'muxdock.refreshInterval': 1,
   'window.titleBarStyle': 'custom', 'workbench.panel.defaultLocation': 'bottom',
@@ -121,6 +123,15 @@ try {
     const checks = await checkBatchSessions({ frame, page, cli, until, delay, updateSettings, resizePanel, editor: testEditor, zmx: batchZmx });
     await writeFile(`.test-results/ui-batch-${testEditor}.json`, JSON.stringify({ editor: testEditor, status: 'PASS', checks }, null, 2));
     console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} batch sessions UI: PASS`);
+  } else if (process.env.MUXDOCK_UI_FOCUS === 'drop') {
+    await resizePanel(350);
+    await frame.getByRole('treeitem', { name: 'my-project', exact: true }).click();
+    await frame.locator('.connection-status.connected').waitFor();
+    await frame.getByRole('treeitem', { name: '1: logs', exact: true }).click();
+    await until(async () => cli(['display-message', '-p', '-t', 'my-project', '#{window_name}']).trim() === 'logs');
+    await checkTerminalDrop({ frame, page, cli, until, delay, command, editor: testEditor });
+    await checkTerminalPaste({ frame, page, cli, until, delay });
+    console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} terminal drop/paste UI: PASS`);
   } else if (process.env.MUXDOCK_UI_FOCUS === 'glyphs') {
     await resizePanel(350);
     await frame.getByRole('treeitem', { name: 'my-project', exact: true }).click();
@@ -218,6 +229,7 @@ try {
   await writeFile('.test-results/ui-links.json', JSON.stringify({ editor: testEditor, checks: linkChecks }, null, 2));
   const pasteChecks = await checkTerminalPaste({ frame, page, cli, until, delay });
   await writeFile('.test-results/ui-paste.json', JSON.stringify({ editor: testEditor, checks: pasteChecks }, null, 2));
+  await checkTerminalDrop({ frame, page, cli, until, delay, command, editor: testEditor });
   const searchChecks = await checkTerminalSearch({ frame, page, cli, until, delay, resizePanel });
   await writeFile('.test-results/ui-search.json', JSON.stringify({ editor: testEditor, checks: searchChecks }, null, 2));
   const scrollChecks = await checkSessionScroll({ frame, page, cli, until, delay, updateSettings });
