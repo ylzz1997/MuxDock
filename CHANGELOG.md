@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add session details for all seven managers, including working paths, process IDs, creation times, current commands and connection information where available; add per-window/pane details for tmux, refresh and copy actions.
+- Add per-session **Disconnect all connections** for all seven managers, releasing external clients while preserving background programs and unrelated sessions.
+- Mark disconnected terminals with a muted red status circle and underline on active and inactive tabs; clear both when reconnecting.
 - Match the editor terminal's minimum contrast setting so text remains readable on application backgrounds and light themes; apply setting changes to open terminals immediately.
 - Open terminal folder links as projects in a new VS Code or Cursor window with Cmd-click on macOS or Ctrl-click on Windows/Linux.
 

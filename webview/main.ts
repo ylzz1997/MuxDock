@@ -5,7 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 import './style.css';
-import { MANAGER_IDS, type ConnectionInfo, type ManagerInfo, type SessionInfo, type Snapshot, type WindowInfo } from '../src/model';
+import { MANAGER_IDS, type ConnectionInfo, type ManagerInfo, type SessionDetails, type SessionInfo, type Snapshot, type WindowInfo } from '../src/model';
 import { decodeTerminalClipboard } from '../src/clipboard';
 import { TerminalLinks } from './links';
 import { TerminalSearch, SEARCH_MATCH_LIMIT, type SearchFlags } from './search';
@@ -242,6 +242,7 @@ function updateTerminal() {
   renderTabs();
   get('.connection-status').textContent = entry ? entry.closed ? '连接已关闭' : '已连接' : '未打开会话';
   get('.connection-status').classList.toggle('connected', !!entry && !entry.closed);
+  get('.connection-status').classList.toggle('closed', !!entry && entry.closed);
   get('.host-name').textContent = snapshot.host;
   const profile = snapshot.launchProfiles.find(profile => profile.id === snapshot.selectedLaunchProfile);
   if (launchButton.dataset.profile !== snapshot.selectedLaunchProfile || launchButton.querySelector('.launch-name')?.textContent !== (profile?.name || 'shell')) launchButton.replaceChildren(icon('terminal'), text('span', profile?.name || 'shell', 'launch-name'));
@@ -302,6 +303,59 @@ function renderTabs() {
 }
 function openSearch() { searchWidget.open(); }
 
+let detailsRequest = 0;
+let detailsTarget: { manager: string; session: string; window?: string } | undefined;
+let detailsText = '';
+let detailsFocus: string | undefined;
+const detailsDialog = document.createElement('dialog');
+detailsDialog.className = 'session-details'; detailsDialog.setAttribute('aria-labelledby', 'session-details-title');
+const detailsHeader = text('header', '', 'details-header');
+const detailsTitle = text('h2', '会话详情'); detailsTitle.id = 'session-details-title';
+const detailsRefresh = button('刷新详情', 'refresh', () => requestDetails());
+const detailsCopy = button('复制详情', 'copy', () => send({ type: 'copy', text: detailsText }));
+const detailsClose = button('关闭详情', 'close', () => detailsDialog.close());
+detailsHeader.append(detailsTitle, detailsRefresh, detailsCopy, detailsClose);
+const detailsBody = text('div', '', 'details-body'); detailsBody.setAttribute('aria-live', 'polite');
+detailsDialog.append(detailsHeader, detailsBody); document.body.append(detailsDialog);
+detailsDialog.addEventListener('close', () => {
+  detailsTarget = undefined; detailsRequest++;
+  if (detailsFocus) tree.querySelector<HTMLElement>(`[data-node="${CSS.escape(detailsFocus)}"]`)?.focus({ preventScroll: true });
+});
+detailsDialog.addEventListener('click', event => {
+  const box = detailsDialog.getBoundingClientRect();
+  if (event.target === detailsDialog && (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom)) detailsDialog.close();
+});
+function requestDetails() {
+  if (!detailsTarget) return;
+  detailsCopy.disabled = true; detailsRefresh.disabled = true; detailsText = '';
+  detailsBody.replaceChildren(text('p', '正在读取详情…', 'details-note'));
+  send({ type: 'details', request: ++detailsRequest, ...detailsTarget });
+}
+function showDetails(manager: ManagerInfo, session: SessionInfo, window?: WindowInfo) {
+  detailsFocus = `${manager.id}/${session.id}${window ? `/${window.id}` : ''}`;
+  detailsTarget = { manager: manager.id, session: session.id, ...(window ? { window: window.id } : {}) };
+  detailsTitle.textContent = window ? 'Window 详情' : '会话详情';
+  requestDetails(); detailsDialog.showModal(); detailsClose.focus();
+}
+function renderDetails(details: SessionDetails) {
+  detailsTitle.textContent = details.title;
+  const fragment = document.createDocumentFragment();
+  const copied = [details.title];
+  for (const section of details.sections) {
+    if (section.title) { fragment.append(text('h3', section.title)); copied.push(`\n${section.title}`); }
+    const list = document.createElement('dl');
+    for (const field of section.fields) {
+      let value = field.value === undefined || field.value === '' ? '未提供' : String(field.value);
+      if (field.label.includes('时间') && /^\d{4}-\d\d-\d\dT/.test(value)) value = new Date(value).toLocaleString(undefined, { timeZoneName: 'short' });
+      list.append(text('dt', field.label), text('dd', value, value === '未提供' ? 'unavailable-value' : ''));
+      copied.push(`${field.label}：${value}`);
+    }
+    fragment.append(list);
+  }
+  if (details.note) { fragment.append(text('p', details.note, 'details-note')); copied.push(`\n${details.note}`); }
+  detailsBody.replaceChildren(fragment); detailsText = copied.join('\n'); detailsCopy.disabled = false;
+}
+
 type MenuItem = { label: string; action: () => void; danger?: boolean; disabled?: boolean; checked?: boolean; detail?: string; id?: string; image?: string; separator?: boolean; remove?: () => void };
 let menu: HTMLElement | undefined;
 function closeMenu() { menu?.remove(); menu = undefined; launchButton.setAttribute('aria-expanded', 'false'); }
@@ -357,7 +411,9 @@ function sessionMenu(manager: ManagerInfo, session: SessionInfo): MenuItem[] {
   const connection = snapshot.connections.find(info => !info.closed && info.manager === manager.id && info.sessionId === session.id);
   return [
     { label: '连接会话', action: () => send({ type: 'attach', manager: manager.id, session: session.id }) },
+    { label: '会话详情', action: () => showDetails(manager, session) },
     ...(connection ? [{ label: '断开此连接', action: () => send({ type: 'disconnect', key: connection.key }) }] : []),
+    ...(manager.capabilities.detachAll ? [{ label: '断开所有连接', disabled: !connection && session.attached === 0, action: () => send({ type: 'disconnectAll', manager: manager.id, session: session.id }) }] : []),
     ...(manager.capabilities.windows ? [{ label: '新建 window', action: () => send({ type: 'window', action: 'new', manager: manager.id, session: session.id }) }] : []),
     ...(manager.capabilities.rename ? [{ label: '重命名会话', action: () => send({ type: 'rename', manager: manager.id, session: session.id }) }] : []),
     ...(manager.capabilities.kill ? [{ label: '结束会话…', danger: true, action: () => send({ type: 'kill', manager: manager.id, session: session.id }) }] : [])
@@ -410,7 +466,7 @@ function renderTree() {
           const windowRow = row(`${node}/${window.id}`, 2, `${window.index}: ${window.name}`, 'window', false, () => action('select'));
           windowRow.classList.toggle('active-window', window.active); windowRow.title = `${window.panes} 个 pane${window.active ? ' · 当前 window' : ''}`;
           windowRow.setAttribute('aria-current', window.active ? 'true' : 'false');
-          addMenu(windowRow, [{ label: '切换到此 window', action: () => action('select') }, { label: '重命名 window', action: () => action('rename') }, { label: '关闭 window…', danger: true, action: () => action('kill') }]);
+          addMenu(windowRow, [{ label: '切换到此 window', action: () => action('select') }, { label: 'Window 详情', action: () => showDetails(manager, session, window) }, { label: '重命名 window', action: () => action('rename') }, { label: '关闭 window…', danger: true, action: () => action('kill') }]);
           fragment.append(windowRow);
         }
       }
@@ -466,6 +522,11 @@ window.addEventListener('message', event => {
   else if (message.type === 'visible') requestAnimationFrame(fitCurrent);
   else if (message.type === 'paste' && message.key === displayedKey) { const entry = terminals.get(message.key); if (entry && !entry.closed) entry.terminal.paste(message.text); }
   else if (message.type === 'resolvedLinks') terminals.get(message.key)?.links.receive(message);
+  else if (message.type === 'details' && message.request === detailsRequest && detailsTarget) {
+    detailsRefresh.disabled = false;
+    if (message.error) detailsBody.replaceChildren(text('p', message.error, 'details-error'));
+    else renderDetails(message.details);
+  }
   else if (message.type === 'refreshing') get('[aria-label="刷新"]').classList.toggle('spinning', message.value);
   else if (message.type === 'error') get('.connection-status').textContent = message.message;
 });

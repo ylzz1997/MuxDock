@@ -59,8 +59,8 @@ test('client environment does not inherit an existing mux attachment', () => {
   assert.equal(env.SSH_AUTH_SOCK, '/tmp/ssh'); assert.equal(env.TERM, 'xterm-256color');
 });
 test('unsupported operations are not advertised as working capabilities', () => {
-  for (const id of ['abduco', 'a4'] as const) assert.deepEqual(new Adapter(id).capabilities, { kill: false, rename: false, windows: false });
-  assert.deepEqual(new Adapter('tmux').capabilities, { kill: true, rename: true, windows: true });
+  for (const id of ['abduco', 'a4'] as const) assert.deepEqual(new Adapter(id).capabilities, { kill: false, rename: false, windows: false, detachAll: true });
+  assert.deepEqual(new Adapter('tmux').capabilities, { kill: true, rename: true, windows: true, detachAll: true });
 });
 test('command arguments cannot become shell syntax and preserve custom socket selection', async () => {
   const calls: string[][] = [];

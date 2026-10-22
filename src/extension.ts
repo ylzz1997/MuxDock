@@ -179,7 +179,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     const connection = this.connections.list().find(info => info.key === key);
     const directories: string[] = [];
     if (connection?.manager === 'tmux' && !connection.closed) {
-      const result = await run(this.adapters.get('tmux')!.command(['display-message', '-p', '-t', connection.sessionId, '#{pane_current_path}']));
+      const result = await run(this.adapters.get('tmux')!.command(['-u', 'display-message', '-p', '-t', connection.sessionId, '#{pane_current_path}']));
       const directory = result.stdout.trim();
       if (!result.code && path.isAbsolute(directory)) directories.push(directory);
     }
@@ -322,6 +322,29 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       return;
     }
     if (m.type === 'paste' && typeof m.key === 'string' && m.key === this.connections.activeKey) { this.post({ type: 'paste', key: m.key, text: await vscode.env.clipboard.readText() }); return; }
+    if (m.type === 'details' && Number.isSafeInteger(m.request)) {
+      try {
+        const { adapter, session } = this.resolveSession(m.manager, m.session);
+        const window = m.window === undefined ? undefined : this.resolveWindow(session, m.window);
+        const details = await adapter.details(session, window);
+        this.post({ type: 'details', request: m.request, details });
+      } catch (error) {
+        this.post({ type: 'details', request: m.request, error: error instanceof Error ? error.message : String(error) });
+      }
+      return;
+    }
+    if (m.type === 'disconnectAll') {
+      ++this.activationRevision;
+      await this.queueConnections(async () => {
+        await this.refresh();
+        const { adapter, session } = this.resolveSession(m.manager, m.session);
+        try {
+          await adapter.detachAll(session);
+          this.connections.retainDetachedSession(adapter.id, session.id);
+        } finally { await this.refresh(); }
+      });
+      return;
+    }
     if ((m.type === 'disconnect' || m.type === 'closeTab') && typeof m.key === 'string') {
       await this.queueConnections(() => this.closeConnection(m.key as string, m.type === 'disconnect'));
       this.publish(); await this.refresh(); return;

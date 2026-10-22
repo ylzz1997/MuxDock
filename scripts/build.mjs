@@ -31,6 +31,7 @@ for (const architecture of ['arm64', 'x64']) {
   await chmod(`${nativeRoot}/prebuilds/darwin-${architecture}/spawn-helper`, 0o755);
 }
 await cp('src/pty-host.py', 'dist/pty-host.py');
+await cp('src/session-processes.py', 'dist/session-processes.py');
 if (process.argv.includes('--watch')) {
   for (const option of options) { const ctx = await context(option); await ctx.watch(); }
 } else {

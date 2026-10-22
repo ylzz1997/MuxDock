@@ -8,6 +8,9 @@ export interface SessionInfo {
   windows?: WindowInfo[];
   detail?: string;
 }
+export interface DetailField { label: string; value?: string | number }
+export interface DetailSection { title?: string; fields: DetailField[] }
+export interface SessionDetails { title: string; sections: DetailSection[]; note?: string }
 export interface ManagerInfo {
   id: ManagerId;
   name: string;
@@ -15,7 +18,7 @@ export interface ManagerInfo {
   version?: string;
   error?: string;
   sessions: SessionInfo[];
-  capabilities: { rename: boolean; kill: boolean; windows: boolean };
+  capabilities: { rename: boolean; kill: boolean; windows: boolean; detachAll: boolean };
 }
 export interface Command { file: string; args: string[]; env?: Record<string, string> }
 export interface ConnectionInfo { key: string; manager: ManagerId; sessionId: string; name: string; closed?: boolean; cwd?: string }

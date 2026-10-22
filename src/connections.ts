@@ -64,7 +64,7 @@ export class Connections extends EventEmitter {
     item.history.push({ seq, data });
     item.bytes += Buffer.byteLength(data);
     while (item.bytes > 2 * 1024 * 1024 && item.history.length > 1) item.bytes -= Buffer.byteLength(item.history.shift()!.data);
-    if (this.deliveryEnabled) {
+    if (this.deliveryEnabled && !item.closed) {
       const bytes = Buffer.byteLength(data);
       item.unacknowledged.set(seq, bytes); item.outstanding += bytes;
       if (item.outstanding > 512 * 1024) item.process.pause();
@@ -95,6 +95,17 @@ export class Connections extends EventEmitter {
   select(key: string) { if (this.entries.has(key)) { this.activeKey = key; this.emit('change'); } }
   closeSession(manager: ManagerId, sessionId: string) {
     for (const item of this.list()) if (item.manager === manager && item.sessionId === sessionId) this.disconnect(item.key);
+  }
+  retainDetachedSession(manager: ManagerId, sessionId: string) {
+    for (const item of this.entries.values()) if (item.manager === manager && item.sessionId === sessionId) {
+      this.flush(item);
+      item.closed = true;
+      item.unacknowledged.clear(); item.outstanding = 0;
+      // The backend already detached the client. Let its final output and exit
+      // drain naturally instead of racing it with another termination signal.
+      item.process.resume();
+    }
+    this.emit('change');
   }
   disconnect(key: string, keepTab = false) {
     const item = this.entries.get(key);

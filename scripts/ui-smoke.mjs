@@ -10,6 +10,7 @@ import { checkTerminalPaste } from './ui-paste.mjs';
 import { checkTerminalSearch } from './ui-search.mjs';
 import { checkSessionStatus } from './ui-status.mjs';
 import { checkTerminalTheme } from './ui-theme.mjs';
+import { checkSessionDetails } from './ui-session-details.mjs';
 
 const root = process.cwd();
 const installed = !!process.env.MUXDOCK_USE_VSIX;
@@ -55,7 +56,8 @@ if (installed) {
   const cliPath = process.env.MUXDOCK_CODE_CLI || '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code';
   console.log(execFileSync(cliPath, ['--user-data-dir', userData, '--extensions-dir', extensionsDirectory, '--install-extension', path.resolve(process.env.MUXDOCK_USE_VSIX), '--force'], { encoding: 'utf8' }));
 }
-const processCode = spawn(code, ['--user-data-dir', userData, '--extensions-dir', extensionsDirectory, ...(installed ? [] : ['--extensionDevelopmentPath', root]), '--skip-welcome', '--skip-release-notes', '--disable-workspace-trust', `--remote-debugging-port=${port}`, '--new-window', root], { stdio: ['ignore', 'pipe', 'pipe'] });
+const editorEnv = { ...process.env }; delete editorEnv.ELECTRON_RUN_AS_NODE;
+const processCode = spawn(code, ['--user-data-dir', userData, '--extensions-dir', extensionsDirectory, ...(installed ? [] : ['--extensionDevelopmentPath', root]), '--skip-welcome', '--skip-release-notes', '--disable-workspace-trust', `--remote-debugging-port=${port}`, '--new-window', root], { env: editorEnv, stdio: ['ignore', 'pipe', 'pipe'] });
 let log = '';
 processCode.stdout.on('data', data => { log += data; }); processCode.stderr.on('data', data => { log += data; });
 let browser;
@@ -107,6 +109,11 @@ try {
   const layoutChecks = [];
   const statusChecks = await checkSessionStatus({ frame, page, cli, until, delay, updateSettings, resizePanel });
   await writeFile('.test-results/ui-status.json', JSON.stringify({ editor: testEditor, checks: statusChecks }, null, 2));
+  const detailsChecks = await checkSessionDetails({ frame, page, cli, until, delay, updateSettings, resizePanel, editor: testEditor });
+  await writeFile(`.test-results/ui-session-details-${testEditor}.json`, JSON.stringify({ editor: testEditor, checks: detailsChecks }, null, 2));
+  if (process.env.MUXDOCK_UI_FOCUS === 'session-details') {
+    console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} session details UI: PASS`);
+  } else {
   for (const height of [420, 300, 220, 170, 120]) {
     await resizePanel(height);
     const layout = await frame.evaluate(() => {
@@ -293,7 +300,12 @@ try {
   await frame.getByRole('tab', { name: 'secondary (tmux)', exact: true }).click();
   await until(async () => await frame.getByRole('tab', { name: 'secondary (tmux)', exact: true }).getAttribute('aria-selected') === 'true');
   assert.equal(cli(['list-clients', '-F', '#{session_name}']).trim().split('\n').length, 2);
+  // An activate snapshot arrives before its animation-frame terminal focus.
+  // Let that handoff finish before deliberately moving focus back to a tab.
+  await page.bringToFront();
+  await until(async () => frame.evaluate(() => document.hasFocus() && document.activeElement?.classList.contains('xterm-helper-textarea')));
   await frame.getByRole('tab', { name: 'secondary (tmux)', exact: true }).focus();
+  await until(async () => frame.evaluate(() => document.activeElement?.getAttribute('role') === 'tab'));
   await page.keyboard.press('ArrowLeft');
   await until(async () => await frame.getByRole('tab', { name: 'my-project (tmux)', exact: true }).getAttribute('aria-selected') === 'true');
   await until(async () => frame.evaluate(() => document.activeElement?.getAttribute('role') === 'tab' && document.activeElement?.getAttribute('aria-selected') === 'true'));
@@ -431,6 +443,7 @@ try {
   await writeFile('.test-results/ui-launch.json', JSON.stringify({ editor: testEditor, ...launchChecks }, null, 2));
   await writeFile('.test-results/ui.json', JSON.stringify({ status: 'PASS', editor: testEditor, installedVsix: installed, layoutChecks, terminalLayoutChecks, rendering, checks: ['session panel collapse expands terminal without disconnecting clients', 'terminal input and tab switching work with the session panel hidden', 'session panel restores width and filter with keyboard toggle', 'session panel visibility and width survive webview reload', 'cancel ending a session preserves backend and active tab', 'ending an inactive session removes only its tab', 'ending the active session selects a remaining tab', 'ending the last session clears terminal and shows welcome', 'terminal last row and cursor fit at four heights and two font sizes', 'no horizontal terminal overflow', 'terminal fits with search expanded and tmux status bar', 'filter toggles below header and clears on close/Escape', 'tabs switch existing clients', 'tab keyboard navigation', 'hide/show tabs applies immediately', 'FIFO tab eviction preserves backend sessions', 'lower maxTabs applies immediately', 'closing last tab shows welcome', 'manager visibility and order apply immediately', 'hidden manager terminal remains usable', 'exited tab retains last output', 'ANSI foreground and background colors', '256-color and truecolor rendering', 'xterm dynamic styles permitted by CSP', 'welcome stays inside content at five panel heights', 'new session button reachable at five panel heights', 'clear empty connection status', 'extension activation', 'real webview tree', 'tmux window click', 'terminal input verified by capture-pane', 'detach preserves session', 'reattach', 'Ctrl+B c passthrough', 'external window sync', 'window rename menu', 'create from manager row', 'reuse existing session connection'], screenshot: 'vscode-muxdock.png' }, null, 2));
   console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} UI: PASS`);
+  }
 } catch (error) {
   for (const target of ['my-project:logs', 'secondary']) {
     try { await writeFile(`.test-results/pane-failure-${target.replace(':', '-')}.txt`, cli(['capture-pane', '-p', '-S', '-100', '-t', target])); } catch { }

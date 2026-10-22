@@ -11,6 +11,8 @@ Your sessions belong to the underlying manager. Close a tab, detach or reload th
 - **Seven managers in one place.** Discover installed tools and browse their existing sessions without replacing their configuration.
 - **A real interactive terminal.** Keep native keyboard shortcuts, pane layouts, status bars, shell prompts, ANSI colors and truecolor output.
 - **Session tabs.** Switch between open terminals, close individual tabs, hide the tab bar or set a maximum tab count.
+- **Session details.** Inspect the working directory, process IDs, creation time, current command and attachment information from each session's menu. tmux windows also have their own details view, with information for each pane. Refresh or copy the details without attaching to the session.
+- **Disconnect all clients.** Release every connection to a selected session, including external terminals, while preserving its background programs. Closed tabs keep their output and display a muted red underline and status circle.
 - **Default shell or command.** Choose the shell used for new sessions, or save a startup command such as `codex` in the terminal toolbar.
 - **tmux window navigation.** Expand a session to select, create, rename or close its windows. Native shortcuts such as `Ctrl+B` keep working.
 - **A compact session tree.** Open the filter with the magnifying glass, then collapse it when you are done. Choose which managers appear and in what order.
@@ -23,6 +25,8 @@ Your sessions belong to the underlying manager. Close a tab, detach or reload th
 - A **macOS or Linux** extension host. On Windows, open a WSL or Linux Remote SSH workspace.
 - At least one supported manager installed on that host. MuxDock discovers installed tools; it does not install them.
 - **Python 3** on Linux hosts and on any host where the native PTY cannot be loaded. The extension includes native macOS PTY binaries for Apple Silicon and Intel.
+
+Zellij, abduco and a4 also use Python 3 for session process inspection and disconnecting external clients on macOS and Linux. Details depend on the installed manager and host permissions; unavailable fields display **未提供**. Screen reports an attachment state because its session listing does not expose an exact client count.
 
 The managers must be installed on the **workspace host**: locally for a local workspace, on the SSH host for Remote SSH, inside WSL for a WSL workspace, or inside the container for Dev Containers.
 
@@ -57,6 +61,7 @@ screen
 | Switch tabs | Reuses an existing connection. |
 | Close a tab | Removes that tab and detaches its client. The background session keeps running. |
 | Detach from the session context menu | Disconnects the client and keeps its final output in a closed tab. |
+| Disconnect all from the session context menu | Detaches all clients of that session, including external terminals, while preserving background work and other sessions. MuxDock keeps its final output in a closed tab. |
 | Exceed the tab limit | Removes the earliest-opened tab and detaches its client. The background session keeps running. |
 | End a session from the tree | After confirmation, ends the backend session and removes its terminal tabs. |
 | A client exits on its own | Keeps its final output in a closed tab until you close or replace it. |

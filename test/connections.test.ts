@@ -94,3 +94,16 @@ test('intentional closes still report the actual client exit without reporting a
     }
   } finally { connections.dispose(); }
 });
+
+test('a native detach retains its final output and drains without another termination signal', { timeout: 10000 }, async () => {
+  const connections = new Connections();
+  try {
+    const tab = connections.connect('tmux', { id: '$1', name: 'native' }, { file: '/bin/sh', args: ['-c', "sleep 0.1; printf 'NATIVE_DETACHED\\n'"] }, '/tmp');
+    const exit = new Promise<void>(resolve => connections.once('clientExit', () => resolve()));
+    connections.retainDetachedSession('tmux', '$1');
+    assert.equal(connections.list()[0].closed, true);
+    assert.equal(connections.activeKey, tab.key);
+    await exit;
+    assert.match(connections.replay(tab.key)!.data, /NATIVE_DETACHED/);
+  } finally { connections.dispose(); }
+});
