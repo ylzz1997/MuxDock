@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import os from 'node:os';
 import path from 'node:path';
 import { access, chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -21,9 +22,9 @@ export async function discoverShells(defaultShell: string): Promise<string[]> {
   return (await Promise.all(candidates.map(async shell => { try { await access(shell, constants.X_OK); return shell; } catch { return undefined; } }))).filter((shell): shell is string => !!shell);
 }
 export function validateLaunchCommand(command: string): string | undefined {
-  if (!command.trim()) return '请输入启动命令。';
-  if (command.length > 4096) return '启动命令不能超过 4096 个字符。';
-  if (/[\0\r\n]/.test(command)) return '请输入单行命令，可使用 && 连接多个命令。';
+  if (!command.trim()) return t('commandRequired');
+  if (command.length > 4096) return t('commandTooLong');
+  if (/[\0\r\n]/.test(command)) return t('commandSingleLine');
   return undefined;
 }
 export function readLaunchSettings(value: unknown): LaunchSettings {
@@ -38,9 +39,9 @@ export function readLaunchSettings(value: unknown): LaunchSettings {
   return { shell: typeof saved.shell === 'string' && path.isAbsolute(saved.shell) ? saved.shell : undefined, commandId: typeof saved.commandId === 'string' && ids.has(saved.commandId) ? saved.commandId : undefined, commands };
 }
 export function launchProfiles(settings: LaunchSettings, shells: string[], defaultShell: string): { launchProfiles: LaunchProfile[]; selectedLaunchProfile: string } {
-  const profiles: LaunchProfile[] = [{ id: 'system', name: path.basename(defaultShell), detail: `系统默认 · ${defaultShell}`, kind: 'shell' }];
+  const profiles: LaunchProfile[] = [{ id: 'system', name: path.basename(defaultShell), detail: t('systemDefault', { shell: defaultShell }), kind: 'shell' }];
   for (const shell of shells) if (shell !== defaultShell) profiles.push({ id: `shell:${shell}`, name: path.basename(shell), detail: shell, kind: 'shell' });
-  for (const command of settings.commands) profiles.push({ id: `command:${command.id}`, name: command.command, detail: '自定义命令', kind: 'command' });
+  for (const command of settings.commands) profiles.push({ id: `command:${command.id}`, name: command.command, detail: t('customCommand'), kind: 'command' });
   const command = settings.commands.find(command => command.id === settings.commandId);
   const selected = command ? `command:${command.id}` : settings.shell && shells.includes(settings.shell) && settings.shell !== defaultShell ? `shell:${settings.shell}` : 'system';
   return { launchProfiles: profiles, selectedLaunchProfile: selected };

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { EventEmitter } from 'node:events';
@@ -16,9 +17,9 @@ export function spawnPty(file: string, args: string[], options: IPtyForkOptions)
     }
   }
   const script = [path.join(__dirname, 'pty-host.py'), path.join(__dirname, '../src/pty-host.py')].find(existsSync);
-  if (!script) throw new Error('找不到 MuxDock PTY 辅助程序。');
+  if (!script) throw new Error(t('ptyMissing'));
   const python = [...(process.env.PATH || '').split(path.delimiter), '/usr/bin', '/usr/local/bin', '/opt/homebrew/bin'].map(directory => path.join(directory, 'python3')).find(existsSync);
-  if (!python) throw new Error('此环境需要 Python 3 作为终端兼容后端。请安装 Python 3 后重试。');
+  if (!python) throw new Error(t('ptyPython'));
   const child = spawn(python, ['-u', script, JSON.stringify({ file, args, cwd: options.cwd || process.cwd(), cols: options.cols || 100, rows: options.rows || 28 })], { env: options.env, stdio: ['pipe', 'pipe', 'pipe'] });
   const events = new EventEmitter(); let exited = false;
   const exit = (exitCode: number) => { if (!exited) { exited = true; events.emit('exit', { exitCode }); } };

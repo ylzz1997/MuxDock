@@ -1,0 +1,22 @@
+{
+  "extension.description": "Manage persistent tmux, zmx, screen, Zellij, shpool, abduco and a4 sessions in one terminal dock.",
+  "command.open": "MuxDock: Open Terminal Dock",
+  "command.refresh": "Refresh",
+  "command.newSession": "New Session",
+  "command.settings": "Settings",
+  "command.logs": "MuxDock: Show Logs",
+  "command.language": "MuxDock: Change Language",
+  "config.language": "MuxDock interface language. Auto follows the editor. Changes apply immediately without disconnecting sessions. Command titles and setting descriptions always follow the editor language.",
+  "config.language.auto": "Follow editor language",
+  "config.showTabs": "Show open terminal tabs above the terminal.",
+  "config.maxTabs": "Maximum open terminal tabs, even when tabs are hidden. Older tabs are disconnected when the limit is exceeded; background sessions keep running.",
+  "config.visibleManagers": "Managers displayed in the sidebar, in list order. An empty list hides all managers without affecting open terminals.",
+  "config.showUnavailable": "Show managers that are not installed.",
+  "config.refreshInterval": "Session refresh interval in seconds while the panel is visible.",
+  "config.fontSize": "Terminal font size in pixels. Changes apply immediately.",
+  "config.fontFamily": "Terminal font. Leave empty to use the editor's terminal font. Changes apply immediately.",
+  "config.scrollback": "Number of terminal history lines retained per connection.",
+  "config.executables": "Absolute paths to manager executables, e.g. {\"tmux\": \"/opt/homebrew/bin/tmux\"}.",
+  "config.arguments": "Global manager arguments, e.g. {\"tmux\": [\"-L\", \"work\"]}. Each array item is passed as a separate argument.",
+  "config.defaultDirectory": "Working directory for new sessions. Leave empty to use the workspace or home directory."
+}

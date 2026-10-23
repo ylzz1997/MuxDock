@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import net from 'node:net';
 
 function varint(value: number): number[] {
@@ -10,16 +11,16 @@ function varint(value: number): number[] {
 // versioned contract is accepted; legacy sockets use verified client processes.
 // https://github.com/zellij-org/zellij/blob/v0.45.1/zellij-utils/src/client_server_contract/client_to_server.proto
 export async function detachZellijClients(socketPath: string, clientIds: number[]): Promise<void> {
-  if (!socketPath.includes('/contract_version_1/')) throw new Error('不支持此 Zellij socket 协议。');
+  if (!socketPath.includes('/contract_version_1/')) throw new Error(t('zellijProtocol'));
   if (!clientIds.length) return;
-  if (clientIds.some(id => !Number.isSafeInteger(id) || id <= 0 || id > 65535)) throw new Error('无效的 Zellij 客户端 ID。');
+  if (clientIds.some(id => !Number.isSafeInteger(id) || id <= 0 || id > 65535)) throw new Error(t('zellijClientId'));
   const ids = clientIds.flatMap(varint);
   const detach = [10, ...varint(ids.length), ...ids];
   const payload = Buffer.from([10, ...varint(detach.length), ...detach]);
   const prefix = Buffer.alloc(4); prefix.writeUInt32LE(payload.length);
   await new Promise<void>((resolve, reject) => {
     const socket = net.createConnection(socketPath);
-    const timer = setTimeout(() => { socket.destroy(); reject(new Error('Zellij 断开请求超时。')); }, 3000);
+    const timer = setTimeout(() => { socket.destroy(); reject(new Error(t('zellijTimeout'))); }, 3000);
     socket.once('error', error => { clearTimeout(timer); reject(error); });
     socket.once('connect', () => socket.end(Buffer.concat([prefix, payload]), () => { clearTimeout(timer); resolve(); }));
   });

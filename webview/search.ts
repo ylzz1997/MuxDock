@@ -1,3 +1,4 @@
+import { t, type MessageKey } from '../src/i18n';
 import type { Terminal, IDisposable } from '@xterm/xterm';
 import type { SearchAddon, ISearchOptions, ISearchResultChangeEvent } from '@xterm/addon-search';
 
@@ -15,27 +16,29 @@ export class TerminalSearch {
   private readonly entries = new Map<string, SearchEntry>();
   private activeKey?: string;
   private valid = true;
+  private lastResult = { resultIndex: -1, resultCount: 0 };
+  private regexError = '';
   private readonly flags: SearchFlags;
   constructor(container: HTMLElement, saved: Partial<SearchFlags> | undefined, private readonly changed: () => void, private readonly restoreFocus: () => void) {
     this.flags = { caseSensitive: saved?.caseSensitive === true, wholeWord: saved?.wholeWord === true, regex: saved?.regex === true };
     this.element.className = 'search-bar'; this.element.hidden = true;
-    this.element.setAttribute('role', 'search'); this.element.setAttribute('aria-label', '终端搜索');
+    this.element.setAttribute('role', 'search'); this.element.setAttribute('aria-label', t('search'));
     const field = document.createElement('div'); field.className = 'search-field';
-    this.input = document.createElement('input'); this.input.type = 'text'; this.input.className = 'search-input'; this.input.placeholder = '查找';
-    this.input.setAttribute('aria-label', '搜索终端内容'); this.input.setAttribute('aria-controls', 'terminal-panel'); this.input.spellcheck = false; this.input.maxLength = 1000;
+    this.input = document.createElement('input'); this.input.type = 'text'; this.input.className = 'search-input'; this.input.placeholder = t('find');
+    this.input.setAttribute('aria-label', t('searchContent')); this.input.setAttribute('aria-controls', 'terminal-panel'); this.input.spellcheck = false; this.input.maxLength = 1000;
     field.append(this.input);
     for (const [key, label, text, shortcut] of [
-      ['caseSensitive', '区分大小写', 'Aa', 'C'], ['wholeWord', '全词匹配', 'ab', 'W'], ['regex', '使用正则表达式', '.*', 'R']
+      ['caseSensitive', t('caseSensitive'), 'Aa', 'C'], ['wholeWord', t('wholeWord'), 'ab', 'W'], ['regex', t('regex'), '.*', 'R']
     ] as const) {
       const toggle = this.button(label, text, `search-option search-${key}`, () => this.toggle(key));
       toggle.title = `${label} (Alt+${shortcut})`; toggle.setAttribute('aria-pressed', String(this.flags[key])); field.append(toggle); this.toggles.set(key, toggle);
     }
     this.counter = document.createElement('span'); this.counter.className = 'search-count'; this.counter.setAttribute('role', 'status'); this.counter.setAttribute('aria-live', 'polite'); this.counter.setAttribute('aria-atomic', 'true');
-    this.previous = this.button('上一个匹配项', '', 'search-previous icon-button', () => this.find('previous'));
-    this.previous.title = '上一个匹配项 (Shift+Enter)'; this.previous.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>';
-    this.next = this.button('下一个匹配项', '', 'search-next icon-button', () => this.find('next'));
-    this.next.title = '下一个匹配项 (Enter)'; this.next.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10m-4.5-4.5L8 13l4.5-4.5"/></svg>';
-    const close = this.button('关闭搜索', '', 'search-close icon-button', () => this.close()); close.title = '关闭搜索 (Escape)';
+    this.previous = this.button(t('previousMatch'), '', 'search-previous icon-button', () => this.find('previous'));
+    this.previous.title = `${t('previousMatch')} (Shift+Enter)`; this.previous.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>';
+    this.next = this.button(t('nextMatch'), '', 'search-next icon-button', () => this.find('next'));
+    this.next.title = `${t('nextMatch')} (Enter)`; this.next.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10m-4.5-4.5L8 13l4.5-4.5"/></svg>';
+    const close = this.button(t('closeSearch'), '', 'search-close icon-button', () => this.close()); close.title = `${t('closeSearch')} (Escape)`;
     close.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 3 10 10M13 3 3 13"/></svg>';
     this.error = document.createElement('div'); this.error.className = 'search-error'; this.error.id = 'terminal-search-error'; this.error.hidden = true; this.error.setAttribute('role', 'alert');
     this.element.append(field, this.counter, this.previous, this.next, close, this.error); container.append(this.element);
@@ -50,7 +53,22 @@ export class TerminalSearch {
         if (key) { this.consume(event); this.toggle(key); }
       }
     });
+    this.localize();
     this.results({ resultIndex: -1, resultCount: 0 });
+  }
+  localize() {
+    this.element.setAttribute('aria-label', t('search'));
+    this.input.placeholder = t('find'); this.input.setAttribute('aria-label', t('searchContent'));
+    const labels: [string, MessageKey, string][] = [
+      ['caseSensitive', 'caseSensitive', 'Alt+C'], ['wholeWord', 'wholeWord', 'Alt+W'], ['regex', 'regex', 'Alt+R'],
+      ['previous', 'previousMatch', 'Shift+Enter'], ['next', 'nextMatch', 'Enter'], ['close', 'closeSearch', 'Escape']
+    ];
+    for (const [selector, key, shortcut] of labels) {
+      const button = this.element.querySelector<HTMLButtonElement>(`.search-${selector}`)!;
+      button.setAttribute('aria-label', t(key)); button.title = `${t(key)} (${shortcut})`;
+    }
+    if (!this.valid) this.error.textContent = t('invalidRegexError', { error: this.regexError });
+    this.results(this.lastResult);
   }
   private button(label: string, text: string, className: string, action: () => void): HTMLButtonElement {
     const button = document.createElement('button'); button.type = 'button'; button.className = className; button.textContent = text; button.title = label; button.setAttribute('aria-label', label);
@@ -99,7 +117,8 @@ export class TerminalSearch {
     this.valid = true; this.error.hidden = true; this.input.removeAttribute('aria-invalid'); this.input.removeAttribute('aria-describedby');
     if (this.flags.regex && this.input.value) try { new RegExp(this.input.value); } catch (error) {
       this.valid = false; this.active?.addon.clearDecorations(); this.active?.terminal.clearSelection();
-      this.error.textContent = `正则表达式无效：${error instanceof Error ? error.message : String(error)}`; this.error.hidden = false;
+      this.regexError = error instanceof Error ? error.message : String(error);
+      this.error.textContent = t('invalidRegexError', { error: this.regexError }); this.error.hidden = false;
       this.input.setAttribute('aria-invalid', 'true'); this.input.setAttribute('aria-describedby', this.error.id);
       this.results({ resultIndex: -1, resultCount: 0 }); return;
     }
@@ -112,8 +131,9 @@ export class TerminalSearch {
     else this.active.addon.findNext(this.input.value, options);
   }
   private results({ resultIndex, resultCount }: ISearchResultChangeEvent) {
+    this.lastResult = { resultIndex, resultCount };
     const total = `${resultCount}${resultCount >= SEARCH_MATCH_LIMIT ? '+' : ''}`;
-    this.counter.textContent = !this.valid ? '正则无效' : !this.input.value ? '' : resultCount === 0 ? '无结果' : resultIndex < 0 ? `${total} 项匹配` : `第 ${resultIndex + 1} 项，共 ${total} 项`;
+    this.counter.textContent = !this.valid ? t('invalidRegex') : !this.input.value ? '' : resultCount === 0 ? t('noResults') : resultIndex < 0 ? t('matchCount', { count: total }) : t('matchPosition', { index: resultIndex + 1, count: total });
     this.element.dataset.resultCount = String(resultCount); this.element.dataset.resultIndex = String(resultIndex);
     this.element.classList.toggle('no-results', !!this.input.value && resultCount === 0);
     this.previous.disabled = this.next.disabled = !this.valid || resultCount === 0;

@@ -1,3 +1,5 @@
+import { t, getLocale, setLocale, catalogs, type MessageKey } from '../src/i18n';
+import { bind, localize } from './i18n';
 import { Terminal, type ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
@@ -12,6 +14,8 @@ import { attachTerminalDrop } from './drop';
 import { TerminalSearch, SEARCH_MATCH_LIMIT, type SearchFlags } from './search';
 import type { BatchAction, SessionTarget } from '../src/batch-sessions';
 
+setLocale(document.documentElement.lang);
+
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): Saved | undefined; setState(state: Saved): void };
 interface Saved { width: number; expanded: string[]; filter?: string; filterOpen?: boolean; sidebarCollapsed?: boolean; searchOptions?: SearchFlags }
 const vscode = acquireVsCodeApi();
@@ -20,7 +24,7 @@ const saved = vscode.getState();
 const expanded = new Set(saved?.expanded || ['tmux', 'zmx', 'screen', 'zellij', 'shpool', 'abduco', 'a4']);
 let width = saved?.width || 258;
 let sidebarCollapsed = saved?.sidebarCollapsed === true;
-let snapshot: Snapshot = { managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 12, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000, minimumContrastRatio: 4.5 }, launchProfiles: [], selectedLaunchProfile: 'system' };
+let snapshot: Snapshot = { locale: getLocale(), managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 12, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000, minimumContrastRatio: 4.5 }, launchProfiles: [], selectedLaunchProfile: 'system' };
 let displayedKey: string | undefined;
 let lastActiveTarget: string | undefined;
 let focusGeneration = 0;
@@ -51,6 +55,8 @@ function icon(name: string): HTMLElement {
 function button(label: string, image: string, action: () => void, className = 'icon-button'): HTMLButtonElement {
   const element = document.createElement('button');
   element.type = 'button'; element.className = className; element.title = label; element.setAttribute('aria-label', label);
+  if (label === 'copySelection') element.dataset.copySelection = '';
+  if (Object.hasOwn(catalogs.en, label)) { bind(element, label as MessageKey, 'title'); bind(element, label as MessageKey, 'aria-label'); }
   element.append(icon(image)); element.addEventListener('click', event => { event.stopPropagation(); action(); });
   return element;
 }
@@ -59,14 +65,15 @@ function text(tag: string, value: string, className = ''): HTMLElement {
 }
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `<main class="dock">
-<section class="terminal-area" aria-label="终端">
-  <header class="terminal-header"><div class="terminal-heading"></div><div class="terminal-tabs" role="tablist" aria-label="已打开的终端" hidden></div><div class="terminal-actions"></div></header>
-  <div class="terminal-content"><div class="welcome"><div class="welcome-symbol"></div><h1>选择一个会话</h1><p>从右侧连接已有会话，<br>或创建一个新的终端会话。</p><button class="primary new-session">新建会话</button><span class="welcome-note">断开连接后，任务继续运行</span></div><div class="terminal-hosts" role="tabpanel" aria-label="终端内容"></div></div>
-  <footer class="terminal-footer"><span class="connection-status">未打开会话</span><span class="drop-hint" title="先从文件栏开始拖动，再按住 Shift 移入终端；出现高亮后松手，可多选文件或文件夹">拖动后按 Shift</span><span class="host-name"></span></footer>
+<section class="terminal-area" data-i18n-aria-label="terminal">
+  <header class="terminal-header"><div class="terminal-heading"></div><div class="terminal-tabs" role="tablist" data-i18n-aria-label="openTerminals" hidden></div><div class="terminal-actions"></div></header>
+  <div class="terminal-content"><div class="welcome"><div class="welcome-symbol"></div><h1 data-i18n="chooseSession"></h1><p data-i18n="welcome"></p><button class="primary new-session" data-i18n="newSession"></button><span class="welcome-note" data-i18n="keepRunning"></span></div><div class="terminal-hosts" role="tabpanel" data-i18n-aria-label="terminalContent"></div></div>
+  <footer class="terminal-footer"><span class="connection-status" data-i18n="noSession"></span><span class="drop-hint" data-i18n-title="dropHelp" data-i18n="dropHint"></span><span class="host-name"></span></footer>
 </section>
-<div class="splitter" role="separator" aria-label="调整会话树宽度" aria-orientation="vertical" tabindex="0"></div>
-<aside class="sidebar" id="session-sidebar" aria-label="管理器和会话"><header class="sidebar-header"><div class="sidebar-heading"><span class="sidebar-title">会话</span></div><div class="sidebar-actions"></div></header><div class="filter-wrap" id="session-filter" hidden><input class="filter" aria-label="筛选会话" placeholder="筛选会话…" spellcheck="false"></div><div class="tree" role="tree" aria-label="终端管理器"></div><div class="batch-toolbar" role="group" aria-label="批量操作" hidden><div class="batch-selection"><label class="batch-select-all"><input type="checkbox" aria-label="全选当前显示的会话">全选</label><span class="batch-count" role="status"></span></div><div class="batch-actions"></div><div class="batch-note"></div></div><footer class="sidebar-footer"></footer></aside>
+<div class="splitter" role="separator" data-i18n-aria-label="resizeTree" aria-orientation="vertical" tabindex="0"></div>
+<aside class="sidebar" id="session-sidebar" data-i18n-aria-label="managersAndSessions"><header class="sidebar-header"><div class="sidebar-heading"><span class="sidebar-title" data-i18n="sessions"></span></div><div class="sidebar-actions"></div></header><div class="filter-wrap" id="session-filter" hidden><input class="filter" data-i18n-aria-label="filterSessions" data-i18n-placeholder="filterPlaceholder" spellcheck="false"></div><div class="tree" role="tree" data-i18n-aria-label="terminalManagers"></div><div class="batch-toolbar" role="group" data-i18n-aria-label="batchActions" hidden><div class="batch-selection"><label class="batch-select-all"><input type="checkbox" data-i18n-aria-label="selectVisible"><span data-i18n="selectAll"></span></label><span class="batch-count" role="status"></span></div><div class="batch-actions"></div><div class="batch-note"></div></div><footer class="sidebar-footer"></footer></aside>
 </main>`;
+localize();
 const get = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const tree = get('.tree');
 const terminalHosts = get('.terminal-hosts');
@@ -77,19 +84,19 @@ const clearTerminalDrop = attachTerminalDrop(get('.terminal-area'), () => {
 });
 const filter = get<HTMLInputElement>('.filter');
 const searchWidget = new TerminalSearch(get('.terminal-content'), saved?.searchOptions, () => persist(), () => {
-  if (current()) current()!.terminal.focus(); else get('[aria-label="搜索终端"]').focus();
+  if (current()) current()!.terminal.focus(); else get('.terminal-actions .icon-search').closest<HTMLButtonElement>('button')!.focus();
 });
 const sidebar = get('.sidebar');
 const splitter = get('.splitter');
 const tabList = get('.terminal-tabs');
 const batchToolbar = get('.batch-toolbar');
 const selectAll = get<HTMLInputElement>('.batch-select-all input');
-const batchDisconnect = button('批量断开', 'terminal', () => submitBatch('disconnect'), 'batch-button');
-batchDisconnect.replaceChildren(text('span', '批量断开'));
-batchDisconnect.title = '断开所选会话的所有客户端，后台任务继续运行';
-const batchKill = button('批量结束', 'close', () => submitBatch('kill'), 'batch-button danger');
-batchKill.replaceChildren(text('span', '批量结束…'));
-const batchExit = button('退出批量操作', 'close', () => setBatchMode(false));
+const batchDisconnect = button('batchDisconnect', 'terminal', () => submitBatch('disconnect'), 'batch-button');
+const batchDisconnectLabel = text('span', ''); bind(batchDisconnectLabel, 'batchDisconnect'); batchDisconnect.replaceChildren(batchDisconnectLabel);
+bind(batchDisconnect, 'batchDisconnectHelp', 'title');
+const batchKill = button('batchKill', 'close', () => submitBatch('kill'), 'batch-button danger');
+const batchKillLabel = text('span', ''); bind(batchKillLabel, 'batchKillMenu'); batchKill.replaceChildren(batchKillLabel);
+const batchExit = button('exitBatch', 'close', () => setBatchMode(false));
 get('.batch-selection').append(batchExit);
 get('.batch-actions').append(batchDisconnect, batchKill);
 selectAll.addEventListener('change', () => {
@@ -104,7 +111,7 @@ tabList.addEventListener('wheel', event => {
 }, { passive: false });
 const filterWrap = get('.filter-wrap');
 let filterOpen = saved?.filterOpen ?? !!saved?.filter;
-const filterToggle = button('筛选会话', 'search', () => setFilterOpen(!filterOpen));
+const filterToggle = button('filterSessions', 'search', () => setFilterOpen(!filterOpen));
 filterToggle.setAttribute('aria-controls', 'session-filter');
 get('.sidebar-heading').append(filterToggle);
 filterWrap.hidden = !filterOpen;
@@ -112,22 +119,23 @@ filterToggle.setAttribute('aria-expanded', String(filterOpen));
 get('.welcome-symbol').append(icon('terminal'));
 get('.new-session').addEventListener('click', () => send({ type: 'newSession' }));
 get('.sidebar-actions').append(
-  button('新建会话', 'plus', () => send({ type: 'newSession' })),
-  button('刷新', 'refresh', () => send({ type: 'refresh' })),
-  button('更多操作', 'more', () => showMenu(get('.sidebar-actions').getBoundingClientRect().right, 32, [
-    { label: batchMode ? '退出批量操作' : '批量操作', disabled: batchPending, action: () => setBatchMode(!batchMode) },
-    { label: snapshot.showUnavailable ? '隐藏未安装的管理器' : '显示未安装的管理器', action: () => send({ type: 'showUnavailable', value: !snapshot.showUnavailable }) },
-    { label: '终端字体设置…', action: () => send({ type: 'settings', fontsOnly: true }) },
-    { label: 'MuxDock 设置', action: () => send({ type: 'settings' }) }
+  button('newSession', 'plus', () => send({ type: 'newSession' })),
+  button('refresh', 'refresh', () => send({ type: 'refresh' })),
+  button('moreActions', 'more', () => showMenu(get('.sidebar-actions').getBoundingClientRect().right, 32, [
+    { label: batchMode ? t('exitBatch') : t('batchActions'), disabled: batchPending, action: () => setBatchMode(!batchMode) },
+    { label: snapshot.showUnavailable ? t('hideUnavailable') : t('showUnavailable'), action: () => send({ type: 'showUnavailable', value: !snapshot.showUnavailable }) },
+    { label: t('fontSettings'), action: () => send({ type: 'settings', fontsOnly: true }) },
+    { label: t('language'), action: () => send({ type: 'language' }) },
+    { label: t('settings'), action: () => send({ type: 'settings' }) }
   ]))
 );
-const sidebarToggle = button('收起会话面板', 'collapseSidebar', () => {
+const sidebarToggle = button('collapseSidebar', 'collapseSidebar', () => {
   sidebarCollapsed = !sidebarCollapsed;
   closeMenu(); updateSidebarVisibility(); persist();
   sidebarToggle.focus();
 }, 'icon-button sidebar-toggle');
 sidebarToggle.setAttribute('aria-controls', 'session-sidebar');
-const launchButton = button('选择新会话默认启动项', 'terminal', () => {
+const launchButton = button('chooseLaunch', 'terminal', () => {
   if (menu?.classList.contains('launch-menu')) { closeMenu(); return; }
   const rect = launchButton.getBoundingClientRect();
   showMenu(rect.left, rect.bottom, [
@@ -136,9 +144,9 @@ const launchButton = button('选择新会话默认启动项', 'terminal', () => 
       action: () => send({ type: 'selectLaunchProfile', id: profile.id }),
       ...(profile.kind === 'command' ? { remove: () => send({ type: 'removeLaunchCommand', id: profile.id }) } : {})
     })),
-    { label: '添加命令…', image: 'plus', separator: true, action: () => send({ type: 'addLaunchCommand' }) }
+    { label: t('addCommand'), image: 'plus', separator: true, action: () => send({ type: 'addLaunchCommand' }) }
   ]);
-  menu!.classList.add('launch-menu'); menu!.setAttribute('aria-label', '新会话默认启动项');
+  menu!.classList.add('launch-menu'); menu!.setAttribute('aria-label', t('launchProfile'));
   menu!.style.maxHeight = `${Math.max(20, window.innerHeight - rect.bottom - 4)}px`;
   positionMenu(rect.left, rect.bottom);
   const selected = menu!.querySelector<HTMLElement>('[aria-checked="true"]');
@@ -147,15 +155,15 @@ const launchButton = button('选择新会话默认启动项', 'terminal', () => 
 }, 'launch-button');
 launchButton.setAttribute('aria-haspopup', 'menu'); launchButton.setAttribute('aria-expanded', 'false');
 get('.terminal-actions').append(
-  button('搜索终端', 'search', () => openSearch()),
-  button('复制选中内容', 'copy', () => { const value = current()?.terminal.getSelection(); if (value) send({ type: 'copy', text: value }); }),
+  button('searchTerminal', 'search', () => openSearch()),
+  button('copySelection', 'copy', () => { const value = current()?.terminal.getSelection(); if (value) send({ type: 'copy', text: value }); }),
   launchButton,
   sidebarToggle
 );
 function persist() { vscode.setState({ width, expanded: [...expanded], filter: filter.value, filterOpen, sidebarCollapsed, searchOptions: searchWidget.options }); }
 function updateSidebarVisibility() {
   sidebar.hidden = sidebarCollapsed; splitter.hidden = sidebarCollapsed;
-  const label = sidebarCollapsed ? '展开会话面板' : '收起会话面板';
+  const label = sidebarCollapsed ? t('expandSidebar') : t('collapseSidebar');
   sidebarToggle.title = label; sidebarToggle.setAttribute('aria-label', label);
   sidebarToggle.setAttribute('aria-expanded', String(!sidebarCollapsed));
   sidebarToggle.replaceChildren(icon(sidebarCollapsed ? 'expandSidebar' : 'collapseSidebar'));
@@ -173,7 +181,7 @@ function setBatchMode(enabled: boolean) {
   batchMode = enabled; selectedSessions.clear();
   renderTree();
   if (enabled) tree.querySelector<HTMLElement>('.tree-row.level-1')?.focus();
-  else get('[aria-label="更多操作"]').focus();
+  else get('.sidebar-actions .icon-more').closest<HTMLButtonElement>('button')!.focus();
 }
 function selectedTargets(): SessionTarget[] {
   return snapshot.managers.flatMap(manager => manager.sessions.filter(session => selectedSessions.has(`${manager.id}/${session.id}`)).map(session => ({ manager: manager.id, session: session.id })));
@@ -188,13 +196,13 @@ function updateBatchToolbar() {
   selectAll.indeterminate = checked > 0 && checked < visible.length;
   selectAll.disabled = batchPending || !visible.length;
   batchExit.disabled = batchPending;
-  get('.batch-count').textContent = batchPending ? '正在处理…' : `已选 ${targets.length} 项`;
+  get('.batch-count').textContent = batchPending ? t('processing') : t('selectedCount', { count: targets.length });
   const supports = (capability: 'kill' | 'detachAll') => targets.every(target => snapshot.managers.find(manager => manager.id === target.manager)?.capabilities[capability]);
   batchDisconnect.disabled = batchPending || !targets.length || !supports('detachAll');
   batchKill.disabled = batchPending || !targets.length || !supports('kill');
   const note = get('.batch-note');
   note.hidden = !targets.length || supports('kill');
-  note.textContent = note.hidden ? '' : '所选管理器不支持结束会话，可批量断开。';
+  note.textContent = note.hidden ? '' : t('batchUnsupported');
 }
 function toggleSessionSelection(node: string) {
   if (batchPending) return;
@@ -290,11 +298,11 @@ function ensureTerminal(info: ConnectionInfo) {
     event.preventDefault();
     const target = links.target(); links.hide();
     showMenu(event.clientX, event.clientY, [
-      ...(target ? [{ label: '打开链接', action: () => links.open(target) }, { label: '复制链接地址', action: () => send({ type: 'copy', text: target }) }] : []),
-      { label: '复制', disabled: !terminal.hasSelection(), action: () => send({ type: 'copy', text: terminal.getSelection() }) },
-      { label: '粘贴', disabled: entry!.closed, action: () => send({ type: 'paste', key: info.key }) },
-      { label: '全选', action: () => terminal.selectAll() }, { label: '清空终端显示', action: () => terminal.clear() },
-      { label: '终端字体设置…', separator: true, action: () => send({ type: 'settings', fontsOnly: true }) }
+      ...(target ? [{ label: t('openLink'), action: () => links.open(target) }, { label: t('copyLink'), action: () => send({ type: 'copy', text: target }) }] : []),
+      { label: t('copy'), disabled: !terminal.hasSelection(), action: () => send({ type: 'copy', text: terminal.getSelection() }) },
+      { label: t('paste'), disabled: entry!.closed, action: () => send({ type: 'paste', key: info.key }) },
+      { label: t('selectAll'), action: () => terminal.selectAll() }, { label: t('clearTerminal'), action: () => terminal.clear() },
+      { label: t('fontSettings'), separator: true, action: () => send({ type: 'settings', fontsOnly: true }) }
     ]);
   });
   return entry;
@@ -315,13 +323,13 @@ function updateTerminal() {
   get('.terminal-heading').replaceChildren(icon('terminal'), text('span', entry?.info.name || 'MuxDock', 'terminal-title'));
   if (entry) get('.terminal-heading').append(text('span', entry.info.manager, 'manager-badge'));
   renderTabs();
-  get('.connection-status').textContent = entry ? entry.closed ? '连接已关闭' : '已连接' : '未打开会话';
+  get('.connection-status').textContent = entry ? entry.closed ? t('closed') : t('connected') : t('noSession');
   get('.connection-status').classList.toggle('connected', !!entry && !entry.closed);
   get('.connection-status').classList.toggle('closed', !!entry && entry.closed);
   get('.host-name').textContent = snapshot.host;
   const profile = snapshot.launchProfiles.find(profile => profile.id === snapshot.selectedLaunchProfile);
   if (launchButton.dataset.profile !== snapshot.selectedLaunchProfile || launchButton.querySelector('.launch-name')?.textContent !== (profile?.name || 'shell')) launchButton.replaceChildren(icon('terminal'), text('span', profile?.name || 'shell', 'launch-name'));
-  launchButton.title = `新建会话默认启动项：${profile?.name || 'shell'}${profile ? `（${profile.detail}）` : ''}`;
+  launchButton.title = t('launchDefault', { name: profile?.name || 'shell', detail: profile?.detail || '' });
   launchButton.dataset.profile = snapshot.selectedLaunchProfile;
   for (const terminal of terminals.values()) { Object.assign(terminal.terminal.options, appearance()); }
   requestAnimationFrame(fitCurrent);
@@ -331,7 +339,7 @@ function renderTabs() {
   const visible = snapshot.showTabs && snapshot.connections.length > 0;
   tabList.hidden = !visible;
   get('.terminal-heading').hidden = visible;
-  const signature = JSON.stringify([visible, snapshot.activeKey, snapshot.connections]);
+  const signature = JSON.stringify([getLocale(), visible, snapshot.activeKey, snapshot.connections]);
   if (signature === tabSignature) return;
   tabSignature = signature;
   const focused = document.hasFocus() && tabList.contains(document.activeElement) ? (document.activeElement as HTMLElement)?.closest<HTMLElement>('.terminal-tab')?.dataset.key : undefined;
@@ -344,9 +352,9 @@ function renderTabs() {
     tab.setAttribute('role', 'tab'); tab.setAttribute('aria-label', `${info.name} (${info.manager})`);
     tab.setAttribute('aria-selected', String(active)); tab.setAttribute('aria-controls', 'terminal-panel'); tab.tabIndex = active ? 0 : -1;
     tab.classList.toggle('closed', !!info.closed);
-    tab.title = `${info.manager} · ${info.name}${info.closed ? ' · 连接已关闭' : ''}`;
+    tab.title = `${info.manager} · ${info.name}${info.closed ? ` · ${t('closed')}` : ''}`;
     tab.append(icon('terminal'), text('span', info.name, 'tab-label'), text('span', info.manager, 'tab-manager'));
-    tab.append(button(`关闭标签页 ${info.name} (${info.manager})`, 'close', () => send({ type: 'closeTab', key: info.key }), 'icon-button tab-close'));
+    tab.append(button(t('closeTab', { name: info.name, manager: info.manager }), 'close', () => send({ type: 'closeTab', key: info.key }), 'icon-button tab-close'));
     tab.addEventListener('click', () => send({ type: 'activate', key: info.key }));
     tab.addEventListener('auxclick', event => { if (event.button === 1) { event.preventDefault(); send({ type: 'closeTab', key: info.key }); } });
     tab.addEventListener('keydown', event => {
@@ -385,10 +393,10 @@ let detailsFocus: string | undefined;
 const detailsDialog = document.createElement('dialog');
 detailsDialog.className = 'session-details'; detailsDialog.setAttribute('aria-labelledby', 'session-details-title');
 const detailsHeader = text('header', '', 'details-header');
-const detailsTitle = text('h2', '会话详情'); detailsTitle.id = 'session-details-title';
-const detailsRefresh = button('刷新详情', 'refresh', () => requestDetails());
-const detailsCopy = button('复制详情', 'copy', () => send({ type: 'copy', text: detailsText }));
-const detailsClose = button('关闭详情', 'close', () => detailsDialog.close());
+const detailsTitle = text('h2', t('sessionDetails')); detailsTitle.id = 'session-details-title';
+const detailsRefresh = button('refreshDetails', 'refresh', () => requestDetails());
+const detailsCopy = button('copyDetails', 'copy', () => send({ type: 'copy', text: detailsText }));
+const detailsClose = button('closeDetails', 'close', () => detailsDialog.close());
 detailsHeader.append(detailsTitle, detailsRefresh, detailsCopy, detailsClose);
 const detailsBody = text('div', '', 'details-body'); detailsBody.setAttribute('aria-live', 'polite');
 detailsDialog.append(detailsHeader, detailsBody); document.body.append(detailsDialog);
@@ -403,13 +411,13 @@ detailsDialog.addEventListener('click', event => {
 function requestDetails() {
   if (!detailsTarget) return;
   detailsCopy.disabled = true; detailsRefresh.disabled = true; detailsText = '';
-  detailsBody.replaceChildren(text('p', '正在读取详情…', 'details-note'));
+  detailsBody.replaceChildren(text('p', t('loadingDetails'), 'details-note'));
   send({ type: 'details', request: ++detailsRequest, ...detailsTarget });
 }
 function showDetails(manager: ManagerInfo, session: SessionInfo, window?: WindowInfo) {
   detailsFocus = `${manager.id}/${session.id}${window ? `/${window.id}` : ''}`;
   detailsTarget = { manager: manager.id, session: session.id, ...(window ? { window: window.id } : {}) };
-  detailsTitle.textContent = window ? 'Window 详情' : '会话详情';
+  detailsTitle.textContent = window ? t('windowDetails') : t('sessionDetails');
   requestDetails(); detailsDialog.showModal(); detailsClose.focus();
 }
 function renderDetails(details: SessionDetails) {
@@ -420,10 +428,10 @@ function renderDetails(details: SessionDetails) {
     if (section.title) { fragment.append(text('h3', section.title)); copied.push(`\n${section.title}`); }
     const list = document.createElement('dl');
     for (const field of section.fields) {
-      let value = field.value === undefined || field.value === '' ? '未提供' : String(field.value);
-      if (field.label.includes('时间') && /^\d{4}-\d\d-\d\dT/.test(value)) value = new Date(value).toLocaleString(undefined, { timeZoneName: 'short' });
-      list.append(text('dt', field.label), text('dd', value, value === '未提供' ? 'unavailable-value' : ''));
-      copied.push(`${field.label}：${value}`);
+      let value = field.value === undefined || field.value === '' ? t('notProvided') : String(field.value);
+      if (field.kind === 'timestamp' && /^\d{4}-\d\d-\d\dT/.test(value)) value = new Date(value).toLocaleString(getLocale(), { timeZoneName: 'short' });
+      list.append(text('dt', t(field.label)), text('dd', value, value === t('notProvided') ? 'unavailable-value' : ''));
+      copied.push(`${t(field.label)}: ${value}`);
     }
     fragment.append(list);
   }
@@ -452,7 +460,7 @@ function showMenu(x: number, y: number, items: MenuItem[]) {
     row.disabled = !!item.disabled; row.classList.toggle('danger', !!item.danger);
     row.addEventListener('click', () => { closeMenu(); item.action(); }); wrapper.append(row);
     if (item.remove) {
-      wrapper.append(button(`删除命令 ${item.label}`, 'close', () => { closeMenu(); item.remove!(); }, 'menu-remove icon-button'));
+      wrapper.append(button(t('removeCommand', { name: item.label }), 'close', () => { closeMenu(); item.remove!(); }, 'menu-remove icon-button'));
       row.addEventListener('keydown', event => { if (event.key === 'Delete') { event.preventDefault(); event.stopPropagation(); closeMenu(); item.remove!(); } });
     }
     menu.append(wrapper);
@@ -478,7 +486,7 @@ function row(id: string, level: number, label: string, image: string, expandable
   const element = document.createElement('div'); element.className = `tree-row level-${level}`; element.dataset.node = id; element.tabIndex = -1;
   element.setAttribute('role', 'treeitem'); element.setAttribute('aria-level', String(level + 1)); element.setAttribute('aria-label', label);
   if (expandable) element.setAttribute('aria-expanded', String(expanded.has(id)));
-  const chevron = expandable ? button('展开或折叠', 'chevron', () => toggle(id), 'chevron icon-button') : document.createElement('span');
+  const chevron = expandable ? button('toggleExpanded', 'chevron', () => toggle(id), 'chevron icon-button') : document.createElement('span');
   chevron.classList.add('chevron-space'); chevron.tabIndex = -1;
   element.append(chevron, icon(image), text('span', label, 'row-label'));
   element.addEventListener('click', activate); return element;
@@ -486,17 +494,17 @@ function row(id: string, level: number, label: string, image: string, expandable
 function sessionMenu(manager: ManagerInfo, session: SessionInfo): MenuItem[] {
   const connection = snapshot.connections.find(info => !info.closed && info.manager === manager.id && info.sessionId === session.id);
   return [
-    { label: '连接会话', action: () => send({ type: 'attach', manager: manager.id, session: session.id }) },
-    { label: '会话详情', action: () => showDetails(manager, session) },
-    ...(connection ? [{ label: '断开此连接', action: () => send({ type: 'disconnect', key: connection.key }) }] : []),
-    ...(manager.capabilities.detachAll ? [{ label: '断开所有连接', disabled: !connection && session.attached === 0, action: () => send({ type: 'disconnectAll', manager: manager.id, session: session.id }) }] : []),
-    ...(manager.capabilities.windows ? [{ label: '新建 window', action: () => send({ type: 'window', action: 'new', manager: manager.id, session: session.id }) }] : []),
-    ...(manager.capabilities.rename ? [{ label: '重命名会话', action: () => send({ type: 'rename', manager: manager.id, session: session.id }) }] : []),
-    ...(manager.capabilities.kill ? [{ label: '结束会话…', danger: true, action: () => send({ type: 'kill', manager: manager.id, session: session.id }) }] : [])
+    { label: t('attach'), action: () => send({ type: 'attach', manager: manager.id, session: session.id }) },
+    { label: t('sessionDetails'), action: () => showDetails(manager, session) },
+    ...(connection ? [{ label: t('disconnect'), action: () => send({ type: 'disconnect', key: connection.key }) }] : []),
+    ...(manager.capabilities.detachAll ? [{ label: t('disconnectAll'), disabled: !connection && session.attached === 0, action: () => send({ type: 'disconnectAll', manager: manager.id, session: session.id }) }] : []),
+    ...(manager.capabilities.windows ? [{ label: t('newWindow'), action: () => send({ type: 'window', action: 'new', manager: manager.id, session: session.id }) }] : []),
+    ...(manager.capabilities.rename ? [{ label: t('renameSession'), action: () => send({ type: 'rename', manager: manager.id, session: session.id }) }] : []),
+    ...(manager.capabilities.kill ? [{ label: t('killSessionMenu'), danger: true, action: () => send({ type: 'kill', manager: manager.id, session: session.id }) }] : [])
   ];
 }
 function addMenu(element: HTMLElement, items: MenuItem[]) {
-  element.append(button('会话操作', 'more', () => { const rect = element.getBoundingClientRect(); showMenu(rect.right, rect.bottom, items); }, 'icon-button row-action'));
+  element.append(button('sessionActions', 'more', () => { const rect = element.getBoundingClientRect(); showMenu(rect.right, rect.bottom, items); }, 'icon-button row-action'));
   element.addEventListener('contextmenu', event => { event.preventDefault(); showMenu(event.clientX, event.clientY, items); });
 }
 function renderTree() {
@@ -520,11 +528,11 @@ function renderTree() {
     shown++;
     const managerRow = row(manager.id, 0, manager.name, 'layers', manager.available, () => manager.available && toggle(manager.id));
     managerRow.classList.add('manager-row');
-    managerRow.title = manager.version || '未安装 · 可在设置中指定路径';
-    if (!manager.available) { managerRow.classList.add('unavailable'); managerRow.append(text('span', '未安装', 'count')); }
+    managerRow.title = manager.version || t('notInstalledHelp');
+    if (!manager.available) { managerRow.classList.add('unavailable'); managerRow.append(text('span', t('notInstalled'), 'count')); }
     else {
       managerRow.append(text('span', String(manager.sessions.length), 'count'));
-      managerRow.append(button('新建会话', 'plus', () => send({ type: 'newSession', manager: manager.id }), 'icon-button row-action'));
+      managerRow.append(button('newSession', 'plus', () => send({ type: 'newSession', manager: manager.id }), 'icon-button row-action'));
     }
     fragment.append(managerRow);
     if (!manager.available || (!expanded.has(manager.id) && !needle)) continue;
@@ -535,11 +543,11 @@ function renderTree() {
       const active = !!connection && connection.key === snapshot.activeKey;
       const sessionRow = row(node, 1, session.name, 'terminal', !batchMode && manager.capabilities.windows, () => batchMode ? toggleSessionSelection(node) : send({ type: 'attach', manager: manager.id, session: session.id }));
       sessionRow.classList.toggle('selected', active); sessionRow.classList.toggle('is-connected', !!connection);
-      sessionRow.setAttribute('aria-selected', String(batchMode ? selectedSessions.has(node) : active)); sessionRow.title = session.detail || `${session.name}${session.attached ? ' · 有客户端连接' : ''}`;
+      sessionRow.setAttribute('aria-selected', String(batchMode ? selectedSessions.has(node) : active)); sessionRow.title = session.detail || `${session.name}${session.attached ? ` · ${t('hasClients')}` : ''}`;
       if (batchMode) {
         sessionRow.classList.toggle('batch-selected', selectedSessions.has(node));
         const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.className = 'session-checkbox'; checkbox.tabIndex = -1;
-        checkbox.setAttribute('aria-label', `选择会话 ${session.name} (${manager.id})`); checkbox.checked = selectedSessions.has(node); checkbox.disabled = batchPending;
+        checkbox.setAttribute('aria-label', t('selectSession', { name: session.name, manager: manager.id })); checkbox.checked = selectedSessions.has(node); checkbox.disabled = batchPending;
         checkbox.addEventListener('click', event => event.stopPropagation());
         checkbox.addEventListener('change', () => toggleSessionSelection(node));
         sessionRow.querySelector('.chevron-space')!.replaceWith(checkbox);
@@ -552,18 +560,18 @@ function renderTree() {
           if (needle && !managerMatches && !session.name.toLocaleLowerCase().includes(needle) && !window.name.toLocaleLowerCase().includes(needle)) continue;
           const action = (action: string) => send({ type: 'window', action, manager: manager.id, session: session.id, window: window.id });
           const windowRow = row(`${node}/${window.id}`, 2, `${window.index}: ${window.name}`, 'window', false, () => action('select'));
-          windowRow.classList.toggle('active-window', window.active); windowRow.title = `${window.panes} 个 pane${window.active ? ' · 当前 window' : ''}`;
+          windowRow.classList.toggle('active-window', window.active); windowRow.title = `${t('paneCount', { count: window.panes })}${window.active ? ` · ${t('currentWindow')}` : ''}`;
           windowRow.setAttribute('aria-current', window.active ? 'true' : 'false');
-          addMenu(windowRow, [{ label: '切换到此 window', action: () => action('select') }, { label: 'Window 详情', action: () => showDetails(manager, session, window) }, { label: '重命名 window', action: () => action('rename') }, { label: '关闭 window…', danger: true, action: () => action('kill') }]);
+          addMenu(windowRow, [{ label: t('selectWindow'), action: () => action('select') }, { label: t('windowDetails'), action: () => showDetails(manager, session, window) }, { label: t('renameWindow'), action: () => action('rename') }, { label: t('closeWindowMenu'), danger: true, action: () => action('kill') }]);
           fragment.append(windowRow);
         }
       }
     }
     if (!sessions.length && !manager.error) {
-      const empty = text('button', '＋ 新建会话', 'empty-manager'); empty.addEventListener('click', () => send({ type: 'newSession', manager: manager.id })); fragment.append(empty);
+      const empty = text('button', `＋ ${t('newSession')}`, 'empty-manager'); empty.addEventListener('click', () => send({ type: 'newSession', manager: manager.id })); fragment.append(empty);
     }
   }
-  if (!shown) fragment.append(text('div', needle ? '没有匹配的会话' : !snapshot.visibleManagers.length ? '未选择显示的管理器。\n请在 MuxDock 设置中选择。' : '未发现所选终端管理器。\n安装后点击刷新，或在设置中指定路径。', 'tree-empty'));
+  if (!shown) fragment.append(text('div', needle ? t('noMatches') : !snapshot.visibleManagers.length ? t('noManagersSelected') : t('noManagersFound'), 'tree-empty'));
   tree.replaceChildren(fragment);
   const rows = [...tree.querySelectorAll<HTMLElement>('.tree-row')];
   const focusRow = rows.find(row => row.dataset.node === focused) || rows.find(row => row.classList.contains('selected')) || rows[0];
@@ -571,7 +579,7 @@ function renderTree() {
   // Keep scrolling independent of row replacement and focus restoration.
   tree.scrollTop = scrollTop; tree.scrollLeft = scrollLeft;
   const available = visibleManagers.filter(manager => manager.available).length;
-  get('.sidebar-footer').textContent = `${available} 个可用管理器`;
+  get('.sidebar-footer').textContent = t('managerCount', { count: available });
   updateBatchToolbar();
 }
 tree.addEventListener('keydown', event => {
@@ -588,7 +596,18 @@ tree.addEventListener('keydown', event => {
 window.addEventListener('message', event => {
   const message = event.data;
   if (message.type === 'snapshot') {
+    const previousLocale = getLocale();
     snapshot = message.state;
+    setLocale(snapshot.locale);
+    if (getLocale() !== previousLocale) {
+      document.documentElement.lang = getLocale();
+      localize(); updateSidebarVisibility(); searchWidget.localize(); closeMenu();
+      for (const entry of terminals.values()) entry.links.hide();
+      if (detailsTarget) { detailsTitle.textContent = detailsTarget.window ? t('windowDetails') : t('sessionDetails'); requestDetails(); }
+    }
+    Terminal.strings.promptLabel = t('xtermInput');
+    Terminal.strings.tooMuchOutput = t('xtermTooMuch');
+    for (const input of terminalHosts.querySelectorAll<HTMLElement>('.xterm-helper-textarea')) input.setAttribute('aria-label', t('xtermInput'));
     const connection = snapshot.connections.find(info => info.key === snapshot.activeKey);
     const target = connection && `${connection.key}/${connection.sessionId}`;
     if (target && target !== lastActiveTarget) {
@@ -616,7 +635,7 @@ window.addEventListener('message', event => {
     if (message.error) detailsBody.replaceChildren(text('p', message.error, 'details-error'));
     else renderDetails(message.details);
   }
-  else if (message.type === 'refreshing') get('[aria-label="刷新"]').classList.toggle('spinning', message.value);
+  else if (message.type === 'refreshing') get('.sidebar-actions .icon-refresh').closest<HTMLButtonElement>('button')!.classList.toggle('spinning', message.value);
   else if (message.type === 'batchResult' && message.request === batchRequest) {
     batchPending = false;
     for (const target of message.succeeded as SessionTarget[]) selectedSessions.delete(`${target.manager}/${target.session}`);

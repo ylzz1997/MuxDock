@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add ten interface languages with editor-language detection, English fallback and an immediate language switch that preserves open terminals and UI state. Localize commands, settings, dialogs, search, session details and accessibility labels.
+
 - Accept file drops across the whole active terminal area, including its header, footer and padding; highlight the drop area and clarify when to press Shift.
 
 ## 0.0.11

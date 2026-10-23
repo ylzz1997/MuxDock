@@ -15,7 +15,7 @@ test('new launch settings select the account default shell and recover missing s
   const profiles = launchProfiles(settings, [shell, '/bin/sh'], shell);
   assert.equal(profiles.selectedLaunchProfile, 'system');
   assert.equal(profiles.launchProfiles[0].name, path.basename(shell));
-  assert.match(profiles.launchProfiles[0].detail, /系统默认/);
+  assert.match(profiles.launchProfiles[0].detail, /System default/);
   assert.equal(launchProfiles({ shell: '/missing/shell', commands: [] }, [shell], shell).selectedLaunchProfile, 'system');
   assert.ok((await discoverShells('/bin/sh')).includes('/bin/sh'));
 });

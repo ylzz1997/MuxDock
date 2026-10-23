@@ -189,5 +189,14 @@ body:is(.vscode-light, .vscode-high-contrast-light) :is(.session-checkbox, .batc
 .link-actions button:hover { text-decoration: underline; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinning .icon { animation: spin 1s linear infinite; }
-@media (max-width: 520px) { .terminal-actions [aria-label="复制选中内容"], .host-name { display: none; } .terminal-header { padding-left: 6px; } }
+@media (max-width: 520px) { .terminal-actions [data-copy-selection], .host-name { display: none; } .terminal-header { padding-left: 6px; } }
 @media (prefers-reduced-motion: reduce) { .spinning .icon { animation: none; } }
+
+/* Let translations wrap within narrow panels instead of covering adjacent controls. */
+.sidebar-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.batch-selection { flex-wrap: wrap; column-gap: 6px; }
+.batch-button { white-space: normal; overflow-wrap: anywhere; }
+.empty-manager { height: auto; min-height: 27px; text-align: left; padding-right: 8px; }
+.unavailable .count { max-width: 55%; overflow: hidden; text-overflow: ellipsis; }
+.details-body dt { overflow-wrap: anywhere; }
+.details-body dl { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }

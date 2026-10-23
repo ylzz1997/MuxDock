@@ -1,0 +1,22 @@
+{
+  "extension.description": "tmux、zmx、screen、Zellij、shpool、abduco、a4 の永続セッションを一つのパネルで管理します。",
+  "command.open": "MuxDock: ターミナルパネルを開く",
+  "command.refresh": "更新",
+  "command.newSession": "新規セッション",
+  "command.settings": "設定",
+  "command.logs": "MuxDock: ログを表示",
+  "command.language": "MuxDock: 表示言語を変更",
+  "config.language": "MuxDock の表示言語。auto はエディターに従います。接続を維持したまま即時反映します。コマンド名と設定の説明は常にエディターの言語に従います。",
+  "config.language.auto": "エディターの言語に合わせる",
+  "config.showTabs": "開いているタブをターミナル上部に表示します。",
+  "config.maxTabs": "非表示時も有効なタブ上限です。超過時は古いタブを切断しますが、バックグラウンドセッションは維持します。",
+  "config.visibleManagers": "サイドバーに表示するマネージャーと順序。空のリストはすべて非表示にしますが、開いているターミナルには影響しません。",
+  "config.showUnavailable": "未インストールのマネージャーを表示します。",
+  "config.refreshInterval": "パネル表示中の更新間隔（秒）。",
+  "config.fontSize": "ターミナルの文字サイズ（px）。即時反映します。",
+  "config.fontFamily": "ターミナルのフォント。空欄はエディターのターミナルフォントを使用します。即時反映します。",
+  "config.scrollback": "接続ごとに保持するスクロールバック行数。",
+  "config.executables": "マネージャーの実行ファイルの絶対パス。例：{\"tmux\": \"/opt/homebrew/bin/tmux\"}。",
+  "config.arguments": "グローバル引数。例：{\"tmux\": [\"-L\", \"work\"]}。各要素を個別の引数として渡します。",
+  "config.defaultDirectory": "新規セッションの作業ディレクトリ。空欄はワークスペースまたはホームを使用します。"
+}

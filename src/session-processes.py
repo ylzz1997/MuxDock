@@ -21,7 +21,7 @@ def socket_path(manager, name, cwd=None, environment=None):
         return name
     if name.startswith('./') or name.startswith('../'):
         if cwd is None:
-            raise RuntimeError('无法确认相对路径会话的工作目录。')
+            raise RuntimeError('MUXDOCK_ERROR:relativeCwdUnknown')
         return os.path.normpath(os.path.join(cwd, name))
     suffix = '@' + socket.gethostname()
     home = environment.get('HOME') or pwd.getpwuid(os.getuid()).pw_dir
@@ -39,7 +39,7 @@ def socket_path(manager, name, cwd=None, environment=None):
     for directory in directories:
         if directory and os.path.exists(os.path.join(directory, name + suffix)):
             return os.path.join(directory, name + suffix)
-    raise RuntimeError('找不到会话 socket，请刷新列表。')
+    raise RuntimeError('MUXDOCK_ERROR:socketMissing')
 
 
 def server_pid(address, executable, rows):
@@ -66,7 +66,7 @@ def server_pid(address, executable, rows):
                 pass
     owners = list({pid for pid in owners if executable_for(pid) == executable})
     if len(owners) != 1:
-        raise RuntimeError('无法唯一确认会话 socket 的服务端进程。')
+        raise RuntimeError('MUXDOCK_ERROR:serverAmbiguous')
     return owners[0]
 
 
@@ -189,13 +189,13 @@ def inspect(settings):
         if os.environ.get('ZELLIJ_SOCKET_DIR'):
             candidates = [(pid, address) for pid, address in candidates if address.startswith(os.environ['ZELLIJ_SOCKET_DIR'].rstrip('/') + '/')]
         if len(candidates) != 1:
-            raise RuntimeError('无法唯一确认 Zellij 会话服务端。')
+            raise RuntimeError('MUXDOCK_ERROR:zellijAmbiguous')
         server, address = candidates[0]
     else:
         address = socket_path(manager, name, os.getcwd())
         server = server_pid(address, executable, rows)
     if server <= 1 or executable_for(server) != executable:
-        raise RuntimeError('无法确认会话服务端身份，未断开任何连接。')
+        raise RuntimeError('MUXDOCK_ERROR:serverUnverified')
     descendants = {server}
     while True:
         extended = descendants | {pid for pid, parent, _ in rows if parent in descendants}

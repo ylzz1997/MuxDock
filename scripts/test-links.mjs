@@ -120,7 +120,7 @@ try {
     assert.deepEqual(await opened(), [], 'Dragging to select a URL must not open it');
     await page.mouse.move(780, 440); await page.mouse.move(drag.x, drag.y);
     await page.locator('.terminal-link-hover').waitFor({ state: 'visible' });
-    await page.getByRole('button', { name: '复制链接地址', exact: true }).click();
+    await page.getByRole('button', { name: 'Copy link address', exact: true }).click();
     assert.ok(await page.evaluate(url => window.sent.some(message => message.type === 'copy' && message.text === url), url));
     checks.push(`${platform}: dragging selects text; hover actions copy the destination`);
     await render('\x1b]8;;javascript:alert(1)\x07UNSAFE\x1b]8;;\x07\r\n');

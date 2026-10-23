@@ -1,3 +1,4 @@
+import { t, catalogs, type MessageKey } from './i18n';
 import { execFile } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -36,6 +37,9 @@ export async function findExecutable(name: string, configured?: string): Promise
   return undefined;
 }
 export function requireSuccess(result: RunResult, context: string): string {
-  if (result.code) throw new Error(`${context}：${(result.stderr || result.stdout || '命令执行失败').trim().slice(0, 1000)}`);
+  const diagnostic = result.stderr || result.stdout;
+  const code = /MUXDOCK_ERROR:(\w+)/.exec(diagnostic)?.[1];
+  if (result.code && code && Object.hasOwn(catalogs.en, code)) throw new Error(`${context}: ${t(code as MessageKey)}`);
+  if (result.code) throw new Error(`${context}: ${(result.stderr || result.stdout || t('commandFailed')).trim().slice(0, 1000)}`);
   return result.stdout;
 }

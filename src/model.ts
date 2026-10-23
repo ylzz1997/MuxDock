@@ -1,3 +1,4 @@
+import { t } from './i18n';
 export const MANAGER_IDS = ['tmux', 'zmx', 'screen', 'zellij', 'shpool', 'abduco', 'a4'] as const;
 export type ManagerId = typeof MANAGER_IDS[number];
 export interface WindowInfo { id: string; index: number; name: string; active: boolean; panes: number }
@@ -8,7 +9,7 @@ export interface SessionInfo {
   windows?: WindowInfo[];
   detail?: string;
 }
-export interface DetailField { label: string; value?: string | number }
+export interface DetailField { kind?: 'timestamp'; label: import('./i18n').MessageKey; value?: string | number }
 export interface DetailSection { title?: string; fields: DetailField[] }
 export interface SessionDetails { title: string; sections: DetailSection[]; note?: string }
 export interface ManagerInfo {
@@ -25,6 +26,7 @@ export interface ConnectionInfo { key: string; manager: ManagerId; sessionId: st
 export interface Appearance { fontSize: number; fontFamily: string; scrollback: number; minimumContrastRatio: number }
 export interface LaunchProfile { id: string; name: string; detail: string; kind: 'shell' | 'command' }
 export interface Snapshot {
+  locale: import('./i18n').Locale;
   managers: ManagerInfo[];
   connections: ConnectionInfo[];
   activeKey?: string;
@@ -40,8 +42,8 @@ export interface Snapshot {
 export const connectionKey = (manager: ManagerId, sessionId: string) => `${manager}:${sessionId}`;
 export function isManagerId(value: unknown): value is ManagerId { return MANAGER_IDS.includes(value as ManagerId); }
 export function validateName(value: string): string | undefined {
-  if (!value.trim()) return '请输入会话名称。';
-  if (value.length > 120) return '名称不能超过 120 个字符。';
-  if (!/^[\p{L}\p{N}_][\p{L}\p{N}_.-]*$/u.test(value)) return '请使用字母、数字、中文、下划线、短横线或点，以字母、数字或下划线开头。';
+  if (!value.trim()) return t('nameRequired');
+  if (value.length > 120) return t('nameTooLong');
+  if (!/^[\p{L}\p{N}_][\p{L}\p{N}_.-]*$/u.test(value)) return t('nameInvalid');
   return undefined;
 }

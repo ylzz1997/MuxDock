@@ -1,3 +1,4 @@
+import { t, setLocale, getLocale, languages } from './i18n';
 import * as vscode from 'vscode';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,6 +17,7 @@ import { parseSessionBatch, runSessionBatch, type SessionTarget } from './batch-
 let activeProvider: DockProvider | undefined;
 export async function deactivate() { await activeProvider?.shutdown(); activeProvider = undefined; }
 export function activate(context: vscode.ExtensionContext) {
+  setLocale(vscode.workspace.getConfiguration('muxdock').get('language', 'auto'), vscode.env.language);
   const output = vscode.window.createOutputChannel('MuxDock');
   const provider = new DockProvider(context, output);
   activeProvider = provider;
@@ -25,6 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('muxdock.refresh', () => provider.refresh(true)),
     vscode.commands.registerCommand('muxdock.newSession', () => provider.newSession()),
     vscode.commands.registerCommand('muxdock.settings', (fontsOnly = false) => vscode.commands.executeCommand('workbench.action.openSettings', fontsOnly === true ? '@ext:muxdock.muxdock font' : '@ext:muxdock.muxdock')),
+    vscode.commands.registerCommand('muxdock.language', () => provider.chooseLanguage()),
     vscode.commands.registerCommand('muxdock.logs', () => output.show()),
     vscode.workspace.onDidChangeConfiguration(event => {
       if (event.affectsConfiguration('muxdock') || event.affectsConfiguration('terminal.integrated.fontFamily') || event.affectsConfiguration('terminal.integrated.minimumContrastRatio')) provider.configure();
@@ -62,12 +65,13 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     this.connections.on('exit', ({ key, name, code }) => {
       this.post({ type: 'exit', key, name, code });
       this.log.appendLine(`Client exited: ${name}, code=${code}`);
-      if (code !== 0) void vscode.window.showWarningMessage(`${name} 的连接已退出（${code}）。请查看终端输出；后台会话状态可在刷新后确认。`);
+      if (code !== 0) void vscode.window.showWarningMessage(t('clientExited', { name, code }));
     });
     this.connections.on('clientExit', () => { void this.refresh(); });
   }
   configure() {
     const config = vscode.workspace.getConfiguration('muxdock');
+    setLocale(config.get('language', 'auto'), vscode.env.language);
     const executables = config.get<Record<string, string>>('executables', {});
     const args = config.get<Record<string, string[]>>('arguments', {});
     for (const [id, adapter] of this.adapters) {
@@ -93,14 +97,14 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     const nonce = randomBytes(18).toString('base64');
     // xterm's DOM renderer creates styles for its palette, cell sizes and cursor,
     // and uses inline styles for truecolor. Scripts remain restricted by nonce.
-    return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data:;"><link rel="stylesheet" href="${uri('webview.css')}"><title>MuxDock</title></head><body><div id="app"></div><script nonce="${nonce}" src="${uri('webview.js')}"></script></body></html>`;
+    return `<!DOCTYPE html><html lang="${getLocale()}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data:;"><link rel="stylesheet" href="${uri('webview.css')}"><title>MuxDock</title></head><body><div id="app"></div><script nonce="${nonce}" src="${uri('webview.js')}"></script></body></html>`;
   }
   private post(message: unknown) { if (this.ready && this.view) void this.view.webview.postMessage(message); }
   snapshot(): Snapshot {
     const config = vscode.workspace.getConfiguration('muxdock');
     const terminal = vscode.workspace.getConfiguration('terminal.integrated');
     return {
-      managers: this.managers, connections: this.connections.list(), activeKey: this.connections.activeKey,
+      locale: getLocale(), managers: this.managers, connections: this.connections.list(), activeKey: this.connections.activeKey,
       showUnavailable: config.get('showUnavailable', false), host: vscode.env.remoteName ? `${vscode.env.remoteName} · ${os.hostname()}` : os.hostname(),
       visibleManagers: this.visibleManagers(), showTabs: config.get('showTabs', true), maxTabs: this.maxTabs(),
       appearance: {
@@ -161,18 +165,18 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     return task;
   }
   private resolveSession(managerId: unknown, sessionId: unknown): { adapter: Adapter; session: SessionInfo } {
-    if (!isManagerId(managerId) || typeof sessionId !== 'string') throw new Error('无效的会话。');
+    if (!isManagerId(managerId) || typeof sessionId !== 'string') throw new Error(t('invalidSession'));
     const session = this.managers.find(manager => manager.id === managerId)?.sessions.find(session => session.id === sessionId);
-    if (!session) throw new Error('会话已不存在，请刷新列表。');
+    if (!session) throw new Error(t('sessionGone'));
     return { adapter: this.adapters.get(managerId)!, session };
   }
   private resolveWindow(session: SessionInfo, id: unknown): WindowInfo {
     const window = session.windows?.find(window => window.id === id);
-    if (!window) throw new Error('此 window 已不存在，请刷新列表。');
+    if (!window) throw new Error(t('windowGone'));
     return window;
   }
   private async batchSessions(message: Record<string, unknown>) {
-    if (this.batchBusy) { this.post({ type: 'batchResult', request: message.request, succeeded: [], error: '已有批量操作正在执行。' }); return; }
+    if (this.batchBusy) { this.post({ type: 'batchResult', request: message.request, succeeded: [], error: t('batchBusy') }); return; }
     this.batchBusy = true;
     let succeeded: SessionTarget[] = [];
     let error: string | undefined;
@@ -181,13 +185,14 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       await this.refresh();
       const sessions = targets.map(target => {
         const resolved = this.resolveSession(target.manager, target.session);
-        if (!resolved.adapter.capabilities[action === 'kill' ? 'kill' : 'detachAll']) throw new Error(`${LABELS[target.manager]} 不支持此操作。`);
+        if (!resolved.adapter.capabilities[action === 'kill' ? 'kill' : 'detachAll']) throw new Error(t('unsupportedAction', { manager: LABELS[target.manager] }));
         return { ...resolved, target };
       });
       if (action === 'kill') {
         const detail = sessions.map(({ adapter, session }) => `${LABELS[adapter.id]} · ${session.name}`).join('\n');
-        const confirm = await vscode.window.showWarningMessage(`结束选中的 ${sessions.length} 个会话？其中运行的程序也会结束。`, { modal: true, detail }, '批量结束');
-        if (confirm !== '批量结束') return;
+        const actionLabel = t('batchKill');
+        const confirm = await vscode.window.showWarningMessage(t('confirmBatchKill', { count: sessions.length }), { modal: true, detail }, actionLabel);
+        if (confirm !== actionLabel) return;
       }
       ++this.activationRevision;
       const result = await this.queueConnections(async () => {
@@ -207,7 +212,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       });
       succeeded = result.succeeded;
       if (result.failed.length) {
-        error = `批量${action === 'kill' ? '结束' : '断开'}：成功 ${succeeded.length} 个，失败 ${result.failed.length} 个。\n${result.failed.map(({ target, error }) => `${LABELS[target.manager]} · ${sessions.find(item => item.target.manager === target.manager && item.target.session === target.session)?.session.name || target.session}：${error}`).join('\n')}`;
+        error = t('batchResult', { action: action === 'kill' ? t('batchKill') : t('batchDisconnect'), succeeded: succeeded.length, failed: result.failed.length, errors: result.failed.map(({ target, error }) => `${LABELS[target.manager]} · ${sessions.find(item => item.target.manager === target.manager && item.target.session === target.session)?.session.name || target.session}: ${error}`).join('\n') });
       }
     } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
     finally {
@@ -219,7 +224,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private async cwd(): Promise<string> {
     const configured = vscode.workspace.getConfiguration('muxdock').get<string>('defaultDirectory', '');
     const directory = configured ? configured.replace(/^~(?=\/)/, os.homedir()) : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir();
-    if (!(await stat(directory)).isDirectory()) throw new Error(`工作目录不存在：${directory}`);
+    if (!(await stat(directory)).isDirectory()) throw new Error(t('cwdMissing', { directory }));
     return directory;
   }
   private async linkDirectories(key: string): Promise<string[]> {
@@ -240,7 +245,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     if (target?.kind === 'web') { await vscode.env.openExternal(vscode.Uri.parse(target.uri)); return; }
     if (target?.kind !== 'file') return;
     const location = await resolveFileLink(value, await this.linkDirectories(key));
-    if (!location) throw new Error('链接对应的文件或目录不存在。');
+    if (!location) throw new Error(t('linkMissing'));
     const uri = vscode.Uri.file(location.path);
     if (location.directory) { await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: true }); return; }
     const position = new vscode.Position((location.line || 1) - 1, (location.column || 1) - 1);
@@ -249,10 +254,10 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private async connect(managerId: ManagerId, session: SessionInfo, create = false, revision = this.activationRevision) {
     return this.queueConnections(async () => {
       if (!create && revision !== this.activationRevision) return;
-      if (process.platform === 'win32') throw new Error('请在 Remote WSL 或 Remote SSH 的 Linux 工作区使用这些管理器。');
+      if (process.platform === 'win32') throw new Error(t('windowsUnsupported'));
       const adapter = this.adapters.get(managerId)!;
       const existing = this.connections.find(managerId, session);
-      if (managerId === 'shpool' && session.attached && (!existing || existing.closed)) throw new Error('shpool 会话已有客户端连接。请先在原终端断开，再在这里连接。');
+      if (managerId === 'shpool' && session.attached && (!existing || existing.closed)) throw new Error(t('shpoolAttached'));
       if (existing?.closed) this.connections.disconnect(existing.key);
       if (!existing || existing.closed) await this.trimTabs(this.maxTabs() - 1);
       await this.launchTask;
@@ -285,7 +290,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     if (this.busy) return;
     this.busy = true;
     try {
-      const value = await vscode.window.showInputBox({ title: '添加启动命令', prompt: '新建会话时在所选 shell 中执行；退出命令后可继续使用 shell。', placeHolder: 'codex', ignoreFocusOut: true, validateInput: validateLaunchCommand });
+      const value = await vscode.window.showInputBox({ title: t('addLaunchCommand'), prompt: t('launchPrompt'), placeHolder: 'codex', ignoreFocusOut: true, validateInput: validateLaunchCommand });
       if (!value) return;
       const command = value.trim();
       const existing = this.launchSettings.commands.find(item => item.command === command);
@@ -293,28 +298,40 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       await this.saveLaunchSettings({ ...this.launchSettings, commands: existing ? this.launchSettings.commands : [...this.launchSettings.commands, item], commandId: item.id });
     } finally { this.busy = false; }
   }
+  async chooseLanguage() {
+    const config = vscode.workspace.getConfiguration('muxdock');
+    const selected = config.get('language', 'auto');
+    const items = [{ id: 'auto', label: t('autoLanguage') }, ...Object.entries(languages).map(([id, label]) => ({ id, label }))];
+    const choice = await vscode.window.showQuickPick(items.map(item => ({ ...item, description: item.id === selected ? '✓' : '' })), { title: t('languagePrompt'), ignoreFocusOut: true });
+    if (choice) {
+      const inspected = config.inspect('language');
+      const target = inspected?.workspaceFolderValue !== undefined ? vscode.ConfigurationTarget.WorkspaceFolder
+        : inspected?.workspaceValue !== undefined ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+      await config.update('language', choice.id, target);
+    }
+  }
   async newSession(preferred?: ManagerId) {
     if (this.busy) return;
     this.busy = true;
     try {
       await this.refresh();
       const available = this.managers.filter(manager => manager.available && this.visibleManagers().includes(manager.id));
-      const selected = preferred ? available.find(manager => manager.id === preferred) : await vscode.window.showQuickPick(available.map(manager => ({ label: manager.name, description: manager.version, id: manager.id })), { placeHolder: '选择终端管理器', ignoreFocusOut: true });
+      const selected = preferred ? available.find(manager => manager.id === preferred) : await vscode.window.showQuickPick(available.map(manager => ({ label: manager.name, description: manager.version, id: manager.id })), { placeHolder: t('chooseManager'), ignoreFocusOut: true });
       if (!selected) {
-        if (!available.length) void vscode.window.showInformationMessage('没有可用的所选管理器。请在 MuxDock 设置中选择要显示的管理器，或安装后刷新。');
+        if (!available.length) void vscode.window.showInformationMessage(t('noAvailableManagers'));
         return;
       }
-      const name = await vscode.window.showInputBox({ title: `新建 ${LABELS[selected.id]} 会话`, prompt: '输入会话名称', placeHolder: 'my-project', ignoreFocusOut: true, validateInput: value => {
+      const name = await vscode.window.showInputBox({ title: t('newManagerSession', { manager: LABELS[selected.id] }), prompt: t('sessionNamePrompt'), placeHolder: 'my-project', ignoreFocusOut: true, validateInput: value => {
         const error = validateName(value);
         if (error) return error;
-        if (selected.id === 'tmux' && value.includes('.')) return 'tmux 会将点替换为下划线，请直接使用下划线。';
-        if (this.managers.find(manager => manager.id === selected.id)?.sessions.some(session => session.name === value)) return '此名称已经存在。';
+        if (selected.id === 'tmux' && value.includes('.')) return t('tmuxDot');
+        if (this.managers.find(manager => manager.id === selected.id)?.sessions.some(session => session.name === value)) return t('nameExists');
         return undefined;
       } });
       if (!name) return;
       const revision = ++this.activationRevision;
       await this.refresh();
-      if (this.managers.find(manager => manager.id === selected.id)?.sessions.some(session => session.name === name)) throw new Error('此名称已被其他终端创建，请选择已有会话。');
+      if (this.managers.find(manager => manager.id === selected.id)?.sessions.some(session => session.name === name)) throw new Error(t('nameTaken'));
       await vscode.commands.executeCommand('muxdock.dock.focus');
       await this.connect(selected.id, { id: name, name }, true, revision);
     } finally { this.busy = false; }
@@ -343,6 +360,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       await this.saveLaunchSettings({ ...this.launchSettings, commands: this.launchSettings.commands.filter(item => item.id !== id), commandId: this.launchSettings.commandId === id ? undefined : this.launchSettings.commandId });
       return;
     }
+    if (m.type === 'language') { await this.chooseLanguage(); return; }
     if (m.type === 'settings') { await vscode.commands.executeCommand('muxdock.settings', m.fontsOnly === true); return; }
     if (m.type === 'showUnavailable') {
       await vscode.workspace.getConfiguration('muxdock').update('showUnavailable', !!m.value, vscode.ConfigurationTarget.Global);
@@ -413,11 +431,12 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       const { adapter, session } = this.resolveSession(m.manager, m.session);
       if (m.type === 'attach') { await this.connect(adapter.id, session, false, revision); return; }
       if (m.type === 'rename') {
-        const name = await vscode.window.showInputBox({ title: '重命名会话', value: session.name, ignoreFocusOut: true, validateInput: value => validateName(value) || (value.includes('.') ? 'tmux 会话名请使用下划线代替点。' : undefined) });
+        const name = await vscode.window.showInputBox({ title: t('renameSession'), value: session.name, ignoreFocusOut: true, validateInput: value => validateName(value) || (value.includes('.') ? t('tmuxRenameDot') : undefined) });
         if (name && name !== session.name) await adapter.rename(session, name);
       } else if (m.type === 'kill') {
-        const confirm = await vscode.window.showWarningMessage(`结束会话“${session.name}”？其中运行的程序也会结束。`, { modal: true }, '结束会话');
-        if (confirm === '结束会话') {
+        const actionLabel = t('killSession');
+        const confirm = await vscode.window.showWarningMessage(t('confirmKill', { name: session.name }), { modal: true }, actionLabel);
+        if (confirm === actionLabel) {
           await this.queueConnections(async () => {
             await adapter.kill(session);
             this.connections.closeSession(adapter.id, session.id);
@@ -430,12 +449,13 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
         const window = action !== 'new' ? this.resolveWindow(session, m.window) : undefined;
         if (action === 'select') { await this.connect(adapter.id, session, false, revision); if (revision === this.activationRevision) await adapter.windowAction(action, session, window); }
         if (action === 'new' || action === 'rename') {
-          const name = await vscode.window.showInputBox({ title: action === 'new' ? '新建 tmux window' : '重命名 tmux window', value: window?.name, ignoreFocusOut: true, validateInput: validateName });
+          const name = await vscode.window.showInputBox({ title: action === 'new' ? t('newTmuxWindow') : t('renameTmuxWindow'), value: window?.name, ignoreFocusOut: true, validateInput: validateName });
           if (name) await adapter.windowAction(action, session, window, name);
         }
         if (action === 'kill') {
-          const confirm = await vscode.window.showWarningMessage(`关闭 window“${window!.name}”？其中的程序也会结束。`, { modal: true }, '关闭 window');
-          if (confirm === '关闭 window') await adapter.windowAction(action, session, window);
+          const actionLabel = t('closeWindow');
+          const confirm = await vscode.window.showWarningMessage(t('confirmCloseWindow', { name: window!.name }), { modal: true }, actionLabel);
+          if (confirm === actionLabel) await adapter.windowAction(action, session, window);
         }
       }
       await this.refresh();
@@ -445,7 +465,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
     const message = error instanceof Error ? error.message : String(error);
     this.log.appendLine(message);
     this.post({ type: 'error', message });
-    void vscode.window.showErrorMessage(`MuxDock：${message}`);
+    void vscode.window.showErrorMessage(`MuxDock: ${message}`);
   }
   async shutdown() {
     await this.connectionTask;

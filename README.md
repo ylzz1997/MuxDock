@@ -14,12 +14,20 @@ Your sessions belong to the underlying manager. Close a tab, detach or reload th
 - **Session tabs.** Switch between open terminals, close individual tabs, hide the tab bar or set a maximum tab count.
 - **Session details.** Inspect the working directory, process IDs, creation time, current command and attachment information from each session's menu. tmux windows also have their own details view, with information for each pane. Refresh or copy the details without attaching to the session.
 - **Disconnect all clients.** Release every connection to a selected session, including external terminals, while preserving its background programs. Closed tabs keep their output and display a muted red underline and status circle.
-- **Batch session actions.** Choose **批量操作** from the session panel's **…** menu, select sessions across managers, then disconnect their clients or end the sessions with one confirmation. Use the filter and select-all checkbox to narrow the selection; ending sessions requires manager support.
+- **Batch session actions.** Choose **Batch actions** from the session panel's **…** menu, select sessions across managers, then disconnect their clients or end the sessions with one confirmation. Use the filter and select-all checkbox to narrow the selection; ending sessions requires manager support.
 - **Default shell or command.** Choose the shell used for new sessions, or save a startup command such as `codex` in the terminal toolbar.
 - **tmux window navigation.** Expand a session to select, create, rename or close its windows. Native shortcuts such as `Ctrl+B` keep working.
 - **A compact session tree.** Open the filter with the magnifying glass, then collapse it when you are done. Choose which managers appear and in what order.
 - **More room for the terminal.** Collapse the session panel with the button at the far right of the terminal toolbar. Expand it from the same button; its width and visibility are remembered.
 - **Local and remote hosts.** Run the extension where your workspace lives, including Remote SSH, WSL and Dev Containers.
+
+## Languages
+
+MuxDock supports English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, French, Spanish, Brazilian Portuguese and Russian. It follows the editor language by default, with English fallback for unsupported languages.
+
+Choose **Language…** from the session panel’s **…** menu, run **MuxDock: Change Language**, or set `muxdock.language`. Changes apply immediately while keeping terminal connections, filters, selections and search state. Command Palette titles and Settings descriptions follow the editor display language independently of this override. Terminal output, commands, paths and session names remain as provided by the terminal or user.
+
+See [Adding translations](docs/LOCALIZATION.md) for the translation format and checks.
 
 ## Requirements
 
@@ -28,7 +36,7 @@ Your sessions belong to the underlying manager. Close a tab, detach or reload th
 - At least one supported manager installed on that host. MuxDock discovers installed tools; it does not install them.
 - **Python 3** on Linux hosts and on any host where the native PTY cannot be loaded. The extension includes native macOS PTY binaries for Apple Silicon and Intel.
 
-Zellij, abduco and a4 also use Python 3 for session process inspection and disconnecting external clients on macOS and Linux. Details depend on the installed manager and host permissions; unavailable fields display **未提供**. Screen reports an attachment state because its session listing does not expose an exact client count.
+Zellij, abduco and a4 also use Python 3 for session process inspection and disconnecting external clients on macOS and Linux. Details depend on the installed manager and host permissions; unavailable fields display **Not provided**. Screen reports an attachment state because its session listing does not expose an exact client count.
 
 The managers must be installed on the **workspace host**: locally for a local workspace, on the SSH host for Remote SSH, inside WSL for a WSL workspace, or inside the container for Dev Containers.
 
@@ -37,7 +45,7 @@ The managers must be installed on the **workspace host**: locally for a local wo
 1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.11.vsix`.
 2. Open the Command Palette, search for **MuxDock**, and open the dock (`muxdock.open`). You can also select the **MuxDock** panel tab.
 3. Click a session in the right-hand tree to attach, or use the `+` beside a manager to create a named session.
-4. Use the terminal icon and shell name in the toolbar to select the default shell for new sessions. It starts with the workspace host's system default shell. Choose **添加命令…** to save and select a command such as `codex`; it runs after shell initialization, and exiting the command returns to the shell. The selection and saved commands are remembered on that host. Use the × beside a saved command to remove it.
+4. Use the terminal icon and shell name in the toolbar to select the default shell for new sessions. It starts with the workspace host's system default shell. Choose **Add command…** to save and select a command such as `codex`; it runs after shell initialization, and exiting the command returns to the shell. The selection and saved commands are remembered on that host. Use the × beside a saved command to remove it.
 5. Expand a tmux session to browse its windows. Click a window to select it, or use its context menu for window actions.
 6. Use the tabs above the terminal to switch between open sessions. Each tab shows its session name and manager.
 
@@ -94,7 +102,7 @@ Screen restoration and scrollback after reconnecting depend on the manager. In p
 
 Search for **MuxDock** in Settings, or use `@ext:muxdock.muxdock`.
 
-To adjust terminal text, right-click inside a terminal or open the session panel's **More actions** menu and choose **终端字体设置…**. Font size and font family changes apply immediately to open terminals; custom values are preserved when the default changes.
+To adjust terminal text, right-click inside a terminal or open the session panel's **More actions** menu and choose **Terminal font settings…**. Font size and font family changes apply immediately to open terminals; custom values are preserved when the default changes.
 
 | Setting | Default | Description |
 | --- | --- | --- |

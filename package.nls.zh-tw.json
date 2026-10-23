@@ -1,0 +1,22 @@
+{
+  "extension.description": "在統一終端面板中管理 tmux、zmx、screen、Zellij、shpool、abduco 和 a4 持久會話。",
+  "command.open": "MuxDock: 打開終端面板",
+  "command.refresh": "刷新",
+  "command.newSession": "新建會話",
+  "command.settings": "設置",
+  "command.logs": "MuxDock: 查看日誌",
+  "command.language": "MuxDock: 切換界面語言",
+  "config.language": "MuxDock 界面語言。auto 跟隨編輯器；修改後立即生效，不會斷開會話。命令標題和設置說明始終跟隨編輯器語言。",
+  "config.language.auto": "跟隨編輯器語言",
+  "config.showTabs": "在終端頂部顯示已打開的終端標籤頁。",
+  "config.maxTabs": "最多保留的終端標籤頁數量（隱藏標籤欄時仍生效）。超出時關閉最早的標籤，只斷開客戶端，保留後台會話。",
+  "config.visibleManagers": "右側顯示的管理器，按列表順序排列。留空隱藏全部管理器，不影響已打開的終端。",
+  "config.showUnavailable": "顯示未安裝的管理器。",
+  "config.refreshInterval": "面板可見時的會話刷新間隔（秒）。",
+  "config.fontSize": "終端字號（px），修改後立即生效。",
+  "config.fontFamily": "終端字體。留空使用編輯器終端字體，修改後立即生效。",
+  "config.scrollback": "每個連接保留的終端歷史行數。",
+  "config.executables": "管理器可執行文件的絕對路徑，例如 {\"tmux\": \"/opt/homebrew/bin/tmux\"}。",
+  "config.arguments": "管理器全局參數，例如 {\"tmux\": [\"-L\", \"work\"]}。每個數組項作為獨立參數傳遞。",
+  "config.defaultDirectory": "新會話的工作目錄。留空使用當前工作區或用戶主目錄。"
+}

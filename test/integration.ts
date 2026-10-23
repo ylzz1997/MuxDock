@@ -86,15 +86,15 @@ for (const id of MANAGER_IDS.filter(id => !process.env.MUXDOCK_TEST_MANAGERS || 
     }
     const details = await adapter.details(created);
     await writeFile(`.test-results/details-${id}.json`, JSON.stringify(details, null, 2));
-    assert.equal(details.sections[0].fields.find(field => field.label === '会话名称')?.value, created.name);
-    assert.ok(details.sections.some(section => section.fields.some(field => field.label === '工作路径' && String(field.value).includes('working 目录'))), `${id} details preserve Unicode/space-containing working paths`);
-    assert.ok(details.sections.some(section => section.fields.some(field => field.label.includes('PID') && Number(field.value) > 1)), `${id} exposes native process IDs`);
-    assert.ok(details.sections[0].fields.some(field => field.label.includes('创建时间') && field.value), `${id} exposes creation time`);
+    assert.equal(details.sections[0].fields.find(field => field.label === 'sessionName')?.value, created.name);
+    assert.ok(details.sections.some(section => section.fields.some(field => field.label === 'cwd' && String(field.value).includes('working 目录'))), `${id} details preserve Unicode/space-containing working paths`);
+    assert.ok(details.sections.some(section => section.fields.some(field => /Pid$/.test(field.label) && Number(field.value) > 1)), `${id} exposes native process IDs`);
+    assert.ok(details.sections[0].fields.some(field => field.kind === 'timestamp' && field.value), `${id} exposes creation time`);
     if (id === 'tmux') {
       const window = created.windows![0];
       const windowDetails = await adapter.details(created, window);
-      assert.ok(windowDetails.sections.slice(1).every(section => section.fields.find(field => field.label === 'Window ID')?.value === window.id));
-      assert.ok(details.sections.some(section => section.fields.some(field => field.label === '工作路径' && field.value)));
+      assert.ok(windowDetails.sections.slice(1).every(section => section.fields.find(field => field.label === 'windowId')?.value === window.id));
+      assert.ok(details.sections.some(section => section.fields.some(field => field.label === 'cwd' && field.value)));
     }
     if (id !== 'shpool') {
       const attach = adapter.attach(created); attach.env = { ...env, ...attach.env };
@@ -110,8 +110,8 @@ for (const id of MANAGER_IDS.filter(id => !process.env.MUXDOCK_TEST_MANAGERS || 
     await until(async () => runtime.list()[0]?.closed && (id === 'shpool' || external.list()[0]?.closed), `${id} all clients exited`);
     assert.equal(untouched.list()[0].closed, false, 'Disconnect all must preserve clients of unrelated sessions');
     const detachedDetails = await adapter.details(created);
-    if (id === 'screen') assert.equal(detachedDetails.sections[0].fields.find(field => field.label === '客户端连接状态')?.value, '未连接');
-    else assert.equal(Number(detachedDetails.sections[0].fields.find(field => field.label === '客户端连接数')?.value), 0);
+    if (id === 'screen') assert.equal(detachedDetails.sections[0].fields.find(field => field.label === 'clientStatus')?.value, 'Disconnected');
+    else assert.equal(Number(detachedDetails.sections[0].fields.find(field => field.label === 'clientCount')?.value), 0);
     if (id === 'shpool') await until(async () => (await adapter.list()).sessions.find(session => session.id === created!.id)?.attached === 0, 'shpool client released');
     runtime.disconnect(runtime.activeKey!);
     const afterDetach = (await adapter.list()).sessions.find(session => session.id === created!.id);

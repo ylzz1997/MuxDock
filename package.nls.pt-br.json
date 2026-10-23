@@ -1,0 +1,22 @@
+{
+  "extension.description": "Gerencie sessões persistentes de tmux, zmx, screen, Zellij, shpool, abduco e a4 em um painel.",
+  "command.open": "MuxDock: Abrir painel de terminal",
+  "command.refresh": "Atualizar",
+  "command.newSession": "Nova sessão",
+  "command.settings": "Configurações",
+  "command.logs": "MuxDock: Mostrar logs",
+  "command.language": "MuxDock: Alterar idioma",
+  "config.language": "Idioma do MuxDock. Auto segue o editor. Aplicação imediata sem desconectar. Títulos de comandos e descrições sempre seguem o editor.",
+  "config.language.auto": "Seguir idioma do editor",
+  "config.showTabs": "Mostrar abas abertas acima do terminal.",
+  "config.maxTabs": "Máximo de abas, mesmo ocultas. Ao exceder, abas antigas são desconectadas; sessões continuam.",
+  "config.visibleManagers": "Gerenciadores exibidos na ordem da lista. Lista vazia oculta todos sem afetar terminais abertos.",
+  "config.showUnavailable": "Mostrar gerenciadores não instalados.",
+  "config.refreshInterval": "Intervalo de atualização em segundos enquanto o painel está visível.",
+  "config.fontSize": "Tamanho da fonte em pixels. Aplicação imediata.",
+  "config.fontFamily": "Fonte do terminal. Vazio usa a do editor. Aplicação imediata.",
+  "config.scrollback": "Linhas de histórico mantidas por conexão.",
+  "config.executables": "Caminhos absolutos dos executáveis, ex.: {\"tmux\": \"/opt/homebrew/bin/tmux\"}.",
+  "config.arguments": "Argumentos globais, ex.: {\"tmux\": [\"-L\", \"work\"]}. Cada item é passado separadamente.",
+  "config.defaultDirectory": "Diretório de novas sessões. Vazio usa a área de trabalho ou pasta pessoal."
+}

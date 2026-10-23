@@ -1,0 +1,22 @@
+{
+  "extension.description": "Gestiona sesiones persistentes de tmux, zmx, screen, Zellij, shpool, abduco y a4 en un panel.",
+  "command.open": "MuxDock: Abrir panel de terminal",
+  "command.refresh": "Actualizar",
+  "command.newSession": "Nueva sesión",
+  "command.settings": "Configuración",
+  "command.logs": "MuxDock: Mostrar registros",
+  "command.language": "MuxDock: Cambiar idioma",
+  "config.language": "Idioma de MuxDock. Auto sigue al editor. Se aplica al instante sin desconectar. Los títulos de comandos y descripciones siempre siguen al editor.",
+  "config.language.auto": "Seguir idioma del editor",
+  "config.showTabs": "Mostrar pestañas abiertas encima del terminal.",
+  "config.maxTabs": "Máximo de pestañas, incluso ocultas. Al superarlo se desconectan las antiguas; las sesiones continúan.",
+  "config.visibleManagers": "Gestores visibles en el orden de la lista. Una lista vacía los oculta sin afectar terminales abiertos.",
+  "config.showUnavailable": "Mostrar gestores no instalados.",
+  "config.refreshInterval": "Intervalo de actualización en segundos cuando el panel es visible.",
+  "config.fontSize": "Tamaño de fuente en píxeles. Se aplica al instante.",
+  "config.fontFamily": "Fuente del terminal. Vacío usa la del editor. Se aplica al instante.",
+  "config.scrollback": "Líneas de historial conservadas por conexión.",
+  "config.executables": "Rutas absolutas a ejecutables, p. ej. {\"tmux\": \"/opt/homebrew/bin/tmux\"}.",
+  "config.arguments": "Argumentos globales, p. ej. {\"tmux\": [\"-L\", \"work\"]}. Cada elemento se pasa por separado.",
+  "config.defaultDirectory": "Directorio para nuevas sesiones. Vacío usa el espacio de trabajo o directorio personal."
+}

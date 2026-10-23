@@ -1,0 +1,22 @@
+{
+  "extension.description": "Dauerhafte tmux-, zmx-, screen-, Zellij-, shpool-, abduco- und a4-Sitzungen in einem Terminaldock verwalten.",
+  "command.open": "MuxDock: Terminaldock öffnen",
+  "command.refresh": "Aktualisieren",
+  "command.newSession": "Neue Sitzung",
+  "command.settings": "Einstellungen",
+  "command.logs": "MuxDock: Protokolle anzeigen",
+  "command.language": "MuxDock: Sprache ändern",
+  "config.language": "MuxDock-Sprache. Auto folgt dem Editor. Änderungen gelten sofort ohne Trennen. Befehlstitel und Einstellungsbeschreibungen folgen immer der Editorsprache.",
+  "config.language.auto": "Editorsprache verwenden",
+  "config.showTabs": "Geöffnete Terminaltabs oberhalb des Terminals anzeigen.",
+  "config.maxTabs": "Maximale Tabanzahl, auch bei ausgeblendeter Tableiste. Ältere Tabs werden getrennt; Hintergrundsitzungen bleiben erhalten.",
+  "config.visibleManagers": "Manager in der Seitenleiste in Listenreihenfolge. Leere Liste blendet alle aus, offene Terminals bleiben unverändert.",
+  "config.showUnavailable": "Nicht installierte Manager anzeigen.",
+  "config.refreshInterval": "Aktualisierungsintervall in Sekunden bei sichtbarem Panel.",
+  "config.fontSize": "Terminalschriftgröße in Pixeln. Gilt sofort.",
+  "config.fontFamily": "Terminalschrift. Leer lassen für die Terminalschrift des Editors. Gilt sofort.",
+  "config.scrollback": "Anzahl gespeicherter Terminalverlaufszeilen pro Verbindung.",
+  "config.executables": "Absolute Programmpfade, z. B. {\"tmux\": \"/opt/homebrew/bin/tmux\"}.",
+  "config.arguments": "Globale Argumente, z. B. {\"tmux\": [\"-L\", \"work\"]}. Jeder Eintrag wird einzeln übergeben.",
+  "config.defaultDirectory": "Arbeitsverzeichnis neuer Sitzungen. Leer lassen für Arbeitsbereich oder Benutzerverzeichnis."
+}

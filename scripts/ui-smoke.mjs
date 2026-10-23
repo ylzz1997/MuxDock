@@ -13,6 +13,7 @@ import { checkTerminalTheme } from './ui-theme.mjs';
 import { checkSessionDetails } from './ui-session-details.mjs';
 import { checkTerminalGlyphs } from './ui-glyphs.mjs';
 import { checkBatchSessions } from './ui-batch.mjs';
+import { checkI18n } from './ui-i18n.mjs';
 import { checkTerminalDrop } from './ui-drop.mjs';
 
 const root = process.cwd();
@@ -55,6 +56,7 @@ await writeFile(path.join(userData, 'User/settings.json'), JSON.stringify({
   'chat.disableAIFeatures': true,
   'security.workspace.trust.enabled': false, 'window.zoomLevel': 0,
   'explorer.stickyScroll.enabled': false,
+  'muxdock.language': 'zh-cn',
   'muxdock.arguments': { tmux: ['-S', socket, '-f', '/dev/null'] },
   'muxdock.executables': executables, 'muxdock.refreshInterval': 1,
   'window.titleBarStyle': 'custom', 'workbench.panel.defaultLocation': 'bottom',
@@ -69,7 +71,7 @@ if (installed) {
   console.log(execFileSync(cliPath, ['--user-data-dir', userData, '--extensions-dir', extensionsDirectory, '--install-extension', path.resolve(process.env.MUXDOCK_USE_VSIX), '--force'], { encoding: 'utf8' }));
 }
 const editorEnv = { ...process.env }; delete editorEnv.ELECTRON_RUN_AS_NODE;
-const processCode = spawn(code, ['--user-data-dir', userData, '--extensions-dir', extensionsDirectory, ...(installed ? [] : ['--extensionDevelopmentPath', root]), ...(testEditor === 'cursor' ? ['--skip-onboarding'] : []), '--skip-welcome', '--skip-release-notes', '--disable-workspace-trust', `--remote-debugging-port=${port}`, '--new-window', root], { env: editorEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+const processCode = spawn(code, ['--locale=en', '--user-data-dir', userData, '--extensions-dir', extensionsDirectory, ...(installed ? [] : ['--extensionDevelopmentPath', root]), ...(testEditor === 'cursor' ? ['--skip-onboarding'] : []), '--skip-welcome', '--skip-release-notes', '--disable-workspace-trust', `--remote-debugging-port=${port}`, '--new-window', root], { env: editorEnv, stdio: ['ignore', 'pipe', 'pipe'] });
 let log = '';
 processCode.stdout.on('data', data => { log += data; }); processCode.stderr.on('data', data => { log += data; });
 let browser;
@@ -91,7 +93,7 @@ try {
   };
   await delay(1500);
   await writeFile('.test-results/ui-server-after.txt', cli(['list-sessions']));
-  await command('MuxDock: 打开终端面板');
+  await command('MuxDock: Open Terminal Dock');
   const frame = await until(async () => {
     for (const frame of page.frames()) { try { if (await frame.locator('.dock').count()) return frame; } catch { } }
     return false;
@@ -119,7 +121,11 @@ try {
     await delay(250);
   };
   const layoutChecks = [];
-  if (process.env.MUXDOCK_UI_FOCUS === 'batch') {
+  if (process.env.MUXDOCK_UI_FOCUS === 'i18n') {
+    const checks = await checkI18n({ frame, page, cli, until, delay, updateSettings, resizePanel, command, editor: testEditor });
+    await writeFile(`.test-results/ui-i18n-${testEditor}.json`, JSON.stringify({ editor: testEditor, status: 'PASS', checks }, null, 2));
+    console.log(`${testEditor} i18n UI: PASS (${checks.length} checks)`);
+  } else if (process.env.MUXDOCK_UI_FOCUS === 'batch') {
     const checks = await checkBatchSessions({ frame, page, cli, until, delay, updateSettings, resizePanel, editor: testEditor, zmx: batchZmx });
     await writeFile(`.test-results/ui-batch-${testEditor}.json`, JSON.stringify({ editor: testEditor, status: 'PASS', checks }, null, 2));
     console.log(`${testEditor === 'cursor' ? 'Cursor' : 'VS Code'} batch sessions UI: PASS`);

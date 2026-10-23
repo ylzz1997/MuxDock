@@ -20,8 +20,8 @@ test('Zellij detach sends an explicit client ID list using the versioned native 
     const frame = await received;
     assert.equal(frame.readUInt32LE(0), frame.length - 4);
     assert.deepEqual([...frame.subarray(4)], [10, 9, 10, 7, 1, 127, 128, 1, 255, 255, 3]);
-    await assert.rejects(detachZellijClients('/tmp/contract_version_2/session', [1]), /不支持/);
-    await assert.rejects(detachZellijClients(address, [-1]), /无效/);
+    await assert.rejects(detachZellijClients('/tmp/contract_version_2/session', [1]), /Unsupported/);
+    await assert.rejects(detachZellijClients(address, [-1]), /Invalid/);
   } finally {
     await new Promise<void>(resolve => server.close(() => resolve()));
     await rm(root, { recursive: true, force: true });

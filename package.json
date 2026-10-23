@@ -1,7 +1,7 @@
 {
   "name": "muxdock",
   "displayName": "MuxDock",
-  "description": "Manage persistent tmux, zmx, screen, Zellij, shpool, abduco and a4 sessions in one terminal dock.",
+  "description": "%extension.description%",
   "icon": "media/icon.png",
   "galleryBanner": {
     "color": "#102335",
@@ -68,26 +68,30 @@
     "commands": [
       {
         "command": "muxdock.open",
-        "title": "MuxDock: 打开终端面板"
+        "title": "%command.open%"
       },
       {
         "command": "muxdock.refresh",
-        "title": "刷新",
+        "title": "%command.refresh%",
         "icon": "$(refresh)"
       },
       {
         "command": "muxdock.newSession",
-        "title": "新建会话",
+        "title": "%command.newSession%",
         "icon": "$(add)"
       },
       {
         "command": "muxdock.settings",
-        "title": "设置",
+        "title": "%command.settings%",
         "icon": "$(gear)"
       },
       {
         "command": "muxdock.logs",
-        "title": "MuxDock: 查看日志"
+        "title": "%command.logs%"
+      },
+      {
+        "command": "muxdock.language",
+        "title": "%command.language%"
       }
     ],
     "menus": {
@@ -112,17 +116,49 @@
     "configuration": {
       "title": "MuxDock",
       "properties": {
+        "muxdock.language": {
+          "type": "string",
+          "scope": "window",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "en",
+            "zh-cn",
+            "zh-tw",
+            "ja",
+            "ko",
+            "de",
+            "fr",
+            "es",
+            "pt-br",
+            "ru"
+          ],
+          "enumItemLabels": [
+            "%config.language.auto%",
+            "English",
+            "简体中文",
+            "繁體中文",
+            "日本語",
+            "한국어",
+            "Deutsch",
+            "Français",
+            "Español",
+            "Português (Brasil)",
+            "Русский"
+          ],
+          "description": "%config.language%"
+        },
         "muxdock.showTabs": {
           "type": "boolean",
           "default": true,
-          "description": "在终端顶部显示已打开的终端标签页。"
+          "description": "%config.showTabs%"
         },
         "muxdock.maxTabs": {
           "type": "integer",
           "default": 8,
           "minimum": 1,
           "maximum": 50,
-          "description": "最多保留的终端标签页数量（隐藏标签栏时仍生效）。超过数量时移除最早打开的标签，只断开客户端，保留后台会话。"
+          "description": "%config.maxTabs%"
         },
         "muxdock.visibleManagers": {
           "type": "array",
@@ -148,38 +184,38 @@
             ]
           },
           "uniqueItems": true,
-          "description": "选择右侧显示的终端管理器，按列表顺序排列。留空隐藏全部管理器；已打开的终端标签不受影响。"
+          "description": "%config.visibleManagers%"
         },
         "muxdock.showUnavailable": {
           "type": "boolean",
           "default": false,
-          "description": "显示未安装的管理器。"
+          "description": "%config.showUnavailable%"
         },
         "muxdock.refreshInterval": {
           "type": "number",
           "default": 3,
           "minimum": 1,
           "maximum": 60,
-          "description": "面板可见时的会话刷新间隔（秒）。"
+          "description": "%config.refreshInterval%"
         },
         "muxdock.fontSize": {
           "type": "number",
           "default": 12,
           "minimum": 8,
           "maximum": 40,
-          "description": "终端字体大小（px），修改后立即生效。"
+          "description": "%config.fontSize%"
         },
         "muxdock.fontFamily": {
           "type": "string",
           "default": "",
-          "description": "终端字体，留空时使用编辑器的终端字体。修改后立即生效。"
+          "description": "%config.fontFamily%"
         },
         "muxdock.scrollback": {
           "type": "number",
           "default": 10000,
           "minimum": 1000,
           "maximum": 100000,
-          "description": "每个连接保留的终端滚动行数。"
+          "description": "%config.scrollback%"
         },
         "muxdock.executables": {
           "type": "object",
@@ -187,7 +223,7 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "管理器可执行文件的绝对路径，例如 {\"tmux\": \"/opt/homebrew/bin/tmux\"}。"
+          "description": "%config.executables%"
         },
         "muxdock.arguments": {
           "type": "object",
@@ -198,12 +234,12 @@
               "type": "string"
             }
           },
-          "description": "管理器全局参数，例如 {\"tmux\": [\"-L\", \"work\"]}。每个数组项作为独立参数传递。"
+          "description": "%config.arguments%"
         },
         "muxdock.defaultDirectory": {
           "type": "string",
           "default": "",
-          "description": "新会话的工作目录。留空时使用当前工作区或用户主目录。"
+          "description": "%config.defaultDirectory%"
         }
       }
     }

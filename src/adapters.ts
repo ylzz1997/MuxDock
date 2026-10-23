@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import type { Command, DetailField, ManagerId, ManagerInfo, SessionDetails, SessionInfo, WindowInfo } from './model';
 import { findExecutable, requireSuccess, run, type Runner } from './runner';
 import { shellQuote } from './launch';
@@ -55,7 +56,7 @@ export function parseShpool(text: string): SessionInfo[] {
   if (!text.trim()) return [];
   const parsed: unknown = JSON.parse(text);
   const rows = Array.isArray(parsed) ? parsed : (parsed as { sessions?: unknown[] }).sessions;
-  if (!Array.isArray(rows)) throw new Error('无法识别 shpool 的会话 JSON。');
+  if (!Array.isArray(rows)) throw new Error(t('shpoolJson'));
   return rows.flatMap(row => {
     if (!row || typeof row !== 'object' || typeof row.name !== 'string') return [];
     return [{ id: row.name, name: row.name, attached: String(row.status).toLowerCase() === 'attached' ? 1 : 0 }];
@@ -89,7 +90,7 @@ export class Adapter {
   }
   configure(settings: AdapterSettings) { this.settings = settings; this.probed = false; }
   command(args: string[]): Command {
-    if (!this.executable) throw new Error(`${LABELS[this.id]} 未安装或可执行文件路径无效。`);
+    if (!this.executable) throw new Error(t('executableMissing', { manager: LABELS[this.id] }));
     return { file: this.executable, args: [...(this.settings.args || []), ...args] };
   }
   private clientCommand(args: string[]): Command {
@@ -128,12 +129,12 @@ export class Adapter {
     // GNU/macOS screen uses the exit status as a socket-count/status code, even for valid lists.
     if (this.id === 'screen' && parseScreen(result.stdout).length) return parseScreen(result.stdout);
     if (result.code && /no server running|no sessions|no sockets found|no active.*sessions|error connecting.*(?:No such file|Connection refused)/i.test(`${result.stderr}\n${result.stdout}`)) return [];
-    const output = requireSuccess(result, '读取会话失败');
+    const output = requireSuccess(result, t('readSessionsFailed'));
     if (this.id === 'tmux') {
       const sessions = parseTmuxSessions(output);
       if (!sessions.length) return [];
       const windowResult = await this.execute(this.command(['-u', 'list-windows', '-a', '-F', '#{session_id}|#{window_id}|#{window_index}|#{window_active}|#{window_panes}|#{window_name}']));
-      const windows = parseTmuxWindows(requireSuccess(windowResult, '读取 tmux windows 失败'));
+      const windows = parseTmuxWindows(requireSuccess(windowResult, t('readWindowsFailed')));
       return sessions.map(session => ({ ...session, windows: windows.get(session.id) || [] }));
     }
     const parsers = { zmx: parseZmx, screen: parseScreen, zellij: parseZellij, shpool: parseShpool, abduco: parseAbduco, a4: parseA4 };
@@ -157,30 +158,30 @@ export class Adapter {
     return { ...this.clientCommand(commands[this.id]), env: { SHELL: this.id === 'a4' ? shell : environmentShell } };
   }
   async rename(session: SessionInfo, name: string): Promise<void> {
-    if (!this.capabilities.rename) throw new Error('此管理器不提供会话重命名。');
-    requireSuccess(await this.execute(this.command(['rename-session', '-t', session.id, name])), '重命名失败');
+    if (!this.capabilities.rename) throw new Error(t('renameUnsupported'));
+    requireSuccess(await this.execute(this.command(['rename-session', '-t', session.id, name])), t('renameFailed'));
   }
   async kill(session: SessionInfo): Promise<void> {
-    if (!this.capabilities.kill) throw new Error('请在会话内使用 exit 结束程序。');
+    if (!this.capabilities.kill) throw new Error(t('exitToEnd'));
     const commands: Partial<Record<ManagerId, string[]>> = {
       tmux: ['kill-session', '-t', session.id], zmx: ['kill', session.name], screen: ['-S', session.id, '-X', 'quit'],
       zellij: ['kill-session', session.name], shpool: ['kill', session.name]
     };
-    requireSuccess(await this.execute(this.command(commands[this.id]!)), '结束会话失败');
+    requireSuccess(await this.execute(this.command(commands[this.id]!)), t('killFailed'));
   }
   async detach(session: SessionInfo): Promise<void> {
     // shpool can retain a stale attachment after its client receives SIGHUP.
     if (this.id !== 'shpool') return;
-    requireSuccess(await this.execute(this.command(['detach', session.name])), '断开 shpool 连接失败');
+    requireSuccess(await this.execute(this.command(['detach', session.name])), t('shpoolDetachFailed'));
     for (let attempt = 0; attempt < 30; attempt++) {
       const current = (await this.listSessions()).find(item => item.id === session.id);
       if (!current || !current.attached) return;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    throw new Error('shpool 尚未释放客户端连接，请稍后重试。');
+    throw new Error(t('shpoolNotReleased'));
   }
   async detachAll(session: SessionInfo): Promise<void> {
-    if (!this.capabilities.detachAll) throw new Error('此管理器不提供断开全部客户端的命令。');
+    if (!this.capabilities.detachAll) throw new Error(t('detachUnsupported'));
     if (this.id === 'shpool') { await this.detach(session); return; }
     if (this.id === 'abduco' || this.id === 'a4') {
       await this.sessionProcesses(session, true);
@@ -189,25 +190,25 @@ export class Adapter {
     if (this.id === 'zellij') {
       const processes = await this.sessionProcesses(session);
       for (let attempt = 0; attempt < 10; attempt++) {
-        const clients = requireSuccess(await this.execute(this.command(['--session', session.name, 'action', 'list-clients'])), '读取 Zellij 客户端失败');
+        const clients = requireSuccess(await this.execute(this.command(['--session', session.name, 'action', 'list-clients'])), t('readClientsFailed'));
         const ids = clients.split('\n').flatMap(line => { const match = /^\s*(\d+)\s/.exec(line); return match ? [Number(match[1])] : []; });
         if (!ids.length) return;
         if (processes.socket.includes('/contract_version_1/')) await detachZellijClients(processes.socket, ids);
         else await this.sessionProcesses(session, true);
         await new Promise(resolve => setTimeout(resolve, 50));
       }
-      throw new Error('Zellij 仍有客户端连接，请刷新后重试。');
+      throw new Error(t('zellijStillAttached'));
     }
     const command = this.id === 'tmux' ? this.command(['detach-client', '-s', session.id])
       : this.id === 'screen' ? this.command(['-S', session.id, '-X', 'at', '%', 'detach'])
       : { ...this.command(['detach']), env: { ZMX_SESSION: session.name } };
-    requireSuccess(await this.execute(command), '断开所有连接失败');
+    requireSuccess(await this.execute(command), t('detachFailed'));
   }
   private async sessionProcesses(session: SessionInfo, detach = false): Promise<{ serverPid: number; shellPid?: number; terminalPids: number[]; clients: number[]; createdAt?: string; socket: string }> {
     const python = await findExecutable('python3');
     const script = [path.join(__dirname, 'session-processes.py'), path.join(__dirname, '../src/session-processes.py')].find(existsSync);
-    if (!python || !script) throw new Error('读取此管理器的会话进程需要 Python 3，请安装后重试。');
-    const output = requireSuccess(await this.execute({ file: python, args: [script, JSON.stringify({ manager: this.id, name: session.name, file: this.command([]).file, detach })] }), '读取会话进程失败');
+    if (!python || !script) throw new Error(t('pythonRequired'));
+    const output = requireSuccess(await this.execute({ file: python, args: [script, JSON.stringify({ manager: this.id, name: session.name, file: this.command([]).file, detach })] }), t('readProcessesFailed'));
     return JSON.parse(output);
   }
   async details(session: SessionInfo, window?: WindowInfo): Promise<SessionDetails> {
@@ -217,87 +218,87 @@ export class Adapter {
         this.execute(this.command(['-u', 'display-message', '-p', '-t', target, tmuxSessionFormat])),
         this.execute(this.command(['-u', 'list-panes', ...(window ? [] : ['-s']), '-t', target, '-F', tmuxPaneFormat]))
       ]);
-      return tmuxDetails(requireSuccess(info, '读取详情失败'), requireSuccess(panes, '读取 pane 详情失败'), window);
+      return tmuxDetails(requireSuccess(info, t('readDetailsFailed')), requireSuccess(panes, t('readPanesFailed')), window);
     }
     if (this.id !== 'zmx') {
       const current = (await this.listSessions()).find(item => item.id === session.id);
-      if (!current) throw new Error('会话已不存在，请刷新列表。');
+      if (!current) throw new Error(t('sessionGone'));
       session = current;
     }
     const fields: DetailField[] = [
-      { label: '管理器', value: LABELS[this.id] }, { label: '会话名称', value: session.name }, { label: '会话 ID', value: session.id },
-      { label: '客户端连接数', value: session.attached }
+      { label: 'manager', value: LABELS[this.id] }, { label: 'sessionName', value: session.name }, { label: 'sessionId', value: session.id },
+      { label: 'clientCount', value: session.attached }
     ];
     let pid: number | undefined, shellPid: number | undefined, cwd: string | undefined, created: string | undefined;
     const sections: SessionDetails['sections'] = [{ fields }];
     if (this.id === 'zmx') {
-      const records = zmxRecords(requireSuccess(await this.execute(this.command(['list'])), '读取详情失败'));
+      const records = zmxRecords(requireSuccess(await this.execute(this.command(['list'])), t('readDetailsFailed')));
       const record = records.find(record => record.name === session.name);
-      if (!record) throw new Error('会话已不存在，请刷新列表。');
+      if (!record) throw new Error(t('sessionGone'));
       pid = positiveNumber(record.pid); cwd = sessionPath(record.cwd || record.dir); created = timestamp(record.created);
-      fields.find(field => field.label === '客户端连接数')!.value = record.clients;
+      fields.find(field => field.label === 'clientCount')!.value = record.clients;
     } else if (this.id === 'screen') {
-      const attachment = fields.find(field => field.label === '客户端连接数')!;
-      attachment.label = '客户端连接状态'; attachment.value = session.attached ? '已连接' : '未连接';
+      const attachment = fields.find(field => field.label === 'clientCount')!;
+      attachment.label = 'clientStatus'; attachment.value = session.attached ? t('connected') : t('disconnected');
       pid = positiveNumber(session.id.split('.')[0]);
       const processes = await this.execute({ file: 'ps', args: ['-axo', 'pid=,ppid='] });
       const children = processes.stdout.split('\n').flatMap(line => {
         const [child, parent] = line.trim().split(/\s+/).map(Number);
         return parent === pid && child > 1 ? [child] : [];
       });
-      for (const child of children) sections.push({ title: `终端进程 ${child}`, fields: [{ label: '进程 PID', value: child }, ...await processDetails(child, this.execute, true)] });
+      for (const child of children) sections.push({ title: t('terminalProcess', { pid: child }), fields: [{ label: 'processPid', value: child }, ...await processDetails(child, this.execute, true)] });
       const started = pid && await this.execute({ file: 'ps', args: ['-p', String(pid), '-o', 'lstart='] });
       if (started && !started.code && Number.isFinite(Date.parse(started.stdout.trim()))) created = new Date(started.stdout.trim()).toISOString();
     } else if (this.id === 'shpool') {
-      const output = JSON.parse(requireSuccess(await this.execute(this.command(['list', '--json'])), '读取详情失败'));
+      const output = JSON.parse(requireSuccess(await this.execute(this.command(['list', '--json'])), t('readDetailsFailed')));
       const record = (Array.isArray(output) ? output : output.sessions)?.find((row: { name?: string }) => row.name === session.name);
-      if (!record) throw new Error('会话已不存在，请刷新列表。');
+      if (!record) throw new Error(t('sessionGone'));
       pid = positiveNumber(String(record.shell_pid));
       created = timestamp(String(Number(record.started_at_unix_ms) / 1000));
-      fields.find(field => field.label === '客户端连接数')!.value = String(record.status).toLowerCase() === 'attached' ? 1 : 0;
+      fields.find(field => field.label === 'clientCount')!.value = String(record.status).toLowerCase() === 'attached' ? 1 : 0;
     } else if (this.id === 'zellij') {
       const processes = await this.sessionProcesses(session);
       pid = processes.serverPid; created = processes.createdAt;
-      fields.push({ label: 'Socket', value: processes.socket });
-      for (const terminal of processes.terminalPids) sections.push({ title: `终端进程 ${terminal}`, fields: [{ label: '进程 PID', value: terminal }, ...await processDetails(terminal, this.execute, true)] });
+      fields.push({ label: 'socket', value: processes.socket });
+      for (const terminal of processes.terminalPids) sections.push({ title: t('terminalProcess', { pid: terminal }), fields: [{ label: 'processPid', value: terminal }, ...await processDetails(terminal, this.execute, true)] });
       const result = await this.execute(this.command(['--session', session.name, 'action', 'list-panes', '--all', '--json']));
       if (!result.code) {
         const panes: unknown = JSON.parse(result.stdout);
         if (Array.isArray(panes)) for (const pane of panes) {
           if (pane.is_plugin) continue;
-          sections.push({ title: `Tab ${pane.tab_position}: ${pane.tab_name} · Pane ${pane.id}${pane.is_focused ? ' · 当前' : ''}`, fields: [
-            { label: '标题', value: pane.title }, { label: '工作路径', value: pane.pane_cwd }, { label: '正在执行', value: pane.pane_command || pane.terminal_command }
+          sections.push({ title: `${t('tabPane', { index: pane.tab_position, name: pane.tab_name, pane: pane.id })}${pane.is_focused ? ` · ${t('current')}` : ''}`, fields: [
+            { label: 'title', value: pane.title }, { label: 'cwd', value: pane.pane_cwd }, { label: 'runningCommand', value: pane.pane_command || pane.terminal_command }
           ] });
         }
       }
       const clients = await this.execute(this.command(['--session', session.name, 'action', 'list-clients']));
-      if (!clients.code) fields.find(field => field.label === '客户端连接数')!.value = clients.stdout.split('\n').filter(line => /^\s*\d+\s/.test(line)).length;
+      if (!clients.code) fields.find(field => field.label === 'clientCount')!.value = clients.stdout.split('\n').filter(line => /^\s*\d+\s/.test(line)).length;
     } else if (this.id === 'abduco' || this.id === 'a4') {
       const processes = await this.sessionProcesses(session);
       pid = processes.serverPid; shellPid = processes.shellPid; created = processes.createdAt;
-      fields.find(field => field.label === '客户端连接数')!.value = processes.clients.length;
-      fields.push({ label: 'Socket', value: processes.socket });
-      if (this.id === 'a4') for (const terminal of processes.terminalPids) sections.push({ title: `终端进程 ${terminal}`, fields: [{ label: '进程 PID', value: terminal }, ...await processDetails(terminal, this.execute, true)] });
+      fields.find(field => field.label === 'clientCount')!.value = processes.clients.length;
+      fields.push({ label: 'socket', value: processes.socket });
+      if (this.id === 'a4') for (const terminal of processes.terminalPids) sections.push({ title: t('terminalProcess', { pid: terminal }), fields: [{ label: 'processPid', value: terminal }, ...await processDetails(terminal, this.execute, true)] });
     }
     const processPid = shellPid || (this.id === 'zmx' || this.id === 'shpool' ? pid : undefined);
     const extra = processPid ? await processDetails(processPid, this.execute, true) : [];
     const paneFields = sections.slice(1).flatMap(section => section.fields);
-    cwd = String(extra.find(field => field.label === '工作路径')?.value || cwd || paneFields.find(field => field.label === '工作路径')?.value || '');
-    fields.push({ label: '工作路径', value: cwd }, { label: ['screen', 'abduco', 'a4', 'zellij'].includes(this.id) ? '服务端 PID' : '进程 PID', value: pid },
-      { label: '创建时间', value: created }, { label: '正在执行', value: extra.find(field => field.label === '正在执行')?.value || paneFields.find(field => field.label === '正在执行')?.value },
-      ...(shellPid ? [{ label: '终端进程 PID', value: shellPid }] : []),
-      ...extra.filter(field => field.label === '前台进程 PID'));
-    return { title: '会话详情', sections, note: this.id === 'zmx'
-      ? '正在执行的命令来自会话前台进程；工作路径优先读取该进程，无法读取时使用管理器最近报告的路径。'
-      : '仅显示管理器和主机能够提供的数据；未提供的字段表示当前管理器或版本无法读取。' };
+    cwd = String(extra.find(field => field.label === 'cwd')?.value || cwd || paneFields.find(field => field.label === 'cwd')?.value || '');
+    fields.push({ label: 'cwd', value: cwd }, { label: ['screen', 'abduco', 'a4', 'zellij'].includes(this.id) ? 'serverPid' : 'processPid', value: pid },
+      { kind: 'timestamp', label: 'created', value: created }, { label: 'runningCommand', value: extra.find(field => field.label === 'runningCommand')?.value || paneFields.find(field => field.label === 'runningCommand')?.value },
+      ...(shellPid ? [{ label: 'terminalPid' as const, value: shellPid }] : []),
+      ...extra.filter(field => field.label === 'foregroundPid'));
+    return { title: t('sessionDetails'), sections, note: this.id === 'zmx'
+      ? t('zmxDetailsNote')
+      : t('detailsNote') };
   }
   async windowAction(action: 'select' | 'new' | 'rename' | 'kill', session: SessionInfo, window?: WindowInfo, name?: string): Promise<void> {
-    if (this.id !== 'tmux') throw new Error('此管理器尚未提供 window 导航。');
+    if (this.id !== 'tmux') throw new Error(t('windowUnsupported'));
     const target = window ? `${session.id}:${window.id}` : session.id;
     const args = action === 'select' ? ['select-window', '-t', target]
       : action === 'new' ? ['new-window', '-d', '-t', session.id, '-n', name!]
       : action === 'rename' ? ['rename-window', '-t', target, name!]
       : ['kill-window', '-t', target];
-    requireSuccess(await this.execute(this.command(args)), '操作 tmux window 失败');
+    requireSuccess(await this.execute(this.command(args)), t('windowActionFailed'));
   }
 }

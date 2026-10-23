@@ -10,16 +10,16 @@ test('tmux details preserve names, Unicode paths and commands, with distinct ser
   const window: WindowInfo = { id: '@8', index: 2, name: 'log|api', active: true, panes: 1 };
   const details = tmuxDetails(`${session}\n`, `${pane}\n`, window);
   const value = (section: number, label: string) => details.sections[section].fields.find(field => field.label === label)?.value;
-  assert.equal(details.title, 'Window 详情');
-  assert.equal(value(0, '会话名称'), 'dev|训练');
-  assert.equal(value(0, '服务端 PID'), 321);
-  assert.equal(value(0, '会话创建时间'), new Date(1792374522000).toISOString());
-  assert.equal(value(0, 'Window ID'), '@8');
-  assert.equal(value(1, '进程 PID'), 456);
-  assert.equal(value(1, '工作路径'), '/tmp/当前 目录=a');
-  assert.equal(value(1, '正在执行'), 'python3');
-  assert.equal(value(1, '启动命令'), "python3 'my script.py'");
-  assert.throws(() => tmuxDetails('', ''), /会话已不存在/);
+  assert.equal(details.title, 'Window details');
+  assert.equal(value(0, 'sessionName'), 'dev|训练');
+  assert.equal(value(0, 'serverPid'), 321);
+  assert.equal(value(0, 'sessionCreated'), new Date(1792374522000).toISOString());
+  assert.equal(value(0, 'windowId'), '@8');
+  assert.equal(value(1, 'processPid'), 456);
+  assert.equal(value(1, 'cwd'), '/tmp/当前 目录=a');
+  assert.equal(value(1, 'runningCommand'), 'python3');
+  assert.equal(value(1, 'launchCommand'), "python3 'my script.py'");
+  assert.throws(() => tmuxDetails('', ''), /no longer exists/);
 });
 
 test('zmx metadata handles file URIs, leading indentation and missing/invalid timestamps', () => {

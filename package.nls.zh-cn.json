@@ -1,0 +1,22 @@
+{
+  "extension.description": "在统一终端面板中管理 tmux、zmx、screen、Zellij、shpool、abduco 和 a4 持久会话。",
+  "command.open": "MuxDock: 打开终端面板",
+  "command.refresh": "刷新",
+  "command.newSession": "新建会话",
+  "command.settings": "设置",
+  "command.logs": "MuxDock: 查看日志",
+  "command.language": "MuxDock: 切换界面语言",
+  "config.language": "MuxDock 界面语言。auto 跟随编辑器；修改后立即生效，不会断开会话。命令标题和设置说明始终跟随编辑器语言。",
+  "config.language.auto": "跟随编辑器语言",
+  "config.showTabs": "在终端顶部显示已打开的终端标签页。",
+  "config.maxTabs": "最多保留的终端标签页数量（隐藏标签栏时仍生效）。超出时关闭最早的标签，只断开客户端，保留后台会话。",
+  "config.visibleManagers": "右侧显示的管理器，按列表顺序排列。留空隐藏全部管理器，不影响已打开的终端。",
+  "config.showUnavailable": "显示未安装的管理器。",
+  "config.refreshInterval": "面板可见时的会话刷新间隔（秒）。",
+  "config.fontSize": "终端字号（px），修改后立即生效。",
+  "config.fontFamily": "终端字体。留空使用编辑器终端字体，修改后立即生效。",
+  "config.scrollback": "每个连接保留的终端历史行数。",
+  "config.executables": "管理器可执行文件的绝对路径，例如 {\"tmux\": \"/opt/homebrew/bin/tmux\"}。",
+  "config.arguments": "管理器全局参数，例如 {\"tmux\": [\"-L\", \"work\"]}。每个数组项作为独立参数传递。",
+  "config.defaultDirectory": "新会话的工作目录。留空使用当前工作区或用户主目录。"
+}

@@ -1,3 +1,4 @@
+import { t } from '../src/i18n';
 import type { Terminal, IBufferRange, ILink, ILinkHandler, ILinkProvider } from '@xterm/xterm';
 import { findFileLinks, findWebLinks, parseTerminalLink, type TerminalLinkMatch } from '../src/links';
 
@@ -113,11 +114,11 @@ export class TerminalLinks implements ILinkProvider {
     const tooltip = document.createElement('div'); this.tooltip = tooltip;
     tooltip.className = 'terminal-link-hover xterm-hover'; tooltip.setAttribute('role', 'tooltip');
     const destination = document.createElement('div'); destination.className = 'link-destination'; destination.textContent = target; tooltip.append(destination);
-    const hint = document.createElement('div'); hint.className = 'link-hint'; hint.textContent = `${this.isMac ? '⌘' : 'Ctrl'}+单击打开链接`; tooltip.append(hint);
+    const hint = document.createElement('div'); hint.className = 'link-hint'; hint.textContent = t('linkHint', { key: this.isMac ? '⌘' : 'Ctrl' }); tooltip.append(hint);
     const actions = document.createElement('div'); actions.className = 'link-actions';
     for (const [label, action] of [
-      ['打开链接', () => this.open(target)],
-      ['复制链接地址', () => { this.send({ type: 'copy', text: target }); this.hide(); }]
+      [t('openLink'), () => this.open(target)],
+      [t('copyLink'), () => { this.send({ type: 'copy', text: target }); this.hide(); }]
     ] as const) {
       const button = document.createElement('button'); button.textContent = label;
       button.addEventListener('click', action); actions.append(button);

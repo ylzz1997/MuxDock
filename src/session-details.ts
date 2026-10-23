@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import path from 'node:path';
 import { readlink } from 'node:fs/promises';
 import type { DetailField, SessionDetails, WindowInfo } from './model';
@@ -28,22 +29,22 @@ export function zmxRecords(text: string): Record<string, string>[] {
 }
 export function tmuxDetails(sessionOutput: string, paneOutput: string, window?: WindowInfo): SessionDetails {
   const [id, name, created, attached, windows, startPath, serverPid] = sessionOutput.trimEnd().split(DETAIL_SEPARATOR);
-  if (!/^\$\d+$/.test(id)) throw new Error('会话已不存在，请刷新列表。');
+  if (!/^\$\d+$/.test(id)) throw new Error(t('sessionGone'));
   const sections: SessionDetails['sections'] = [{ fields: [
-    { label: '管理器', value: 'tmux' }, { label: '会话名称', value: name }, { label: '会话 ID', value: id },
-    ...(window ? [{ label: 'Window', value: `${window.index}: ${window.name}` }, { label: 'Window ID', value: window.id }] : []),
-    { label: '会话创建时间', value: timestamp(created) }, { label: '客户端连接数', value: attached },
-    { label: 'Window 数量', value: windows }, { label: '会话初始路径', value: startPath }, { label: '服务端 PID', value: positiveNumber(serverPid) }
+    { label: 'manager', value: 'tmux' }, { label: 'sessionName', value: name }, { label: 'sessionId', value: id },
+    ...(window ? [{ label: 'window' as const, value: `${window.index}: ${window.name}` }, { label: 'windowId' as const, value: window.id }] : []),
+    { kind: 'timestamp', label: 'sessionCreated', value: timestamp(created) }, { label: 'clientCount', value: attached },
+    { label: 'windowCount', value: windows }, { label: 'initialPath', value: startPath }, { label: 'serverPid', value: positiveNumber(serverPid) }
   ] }];
   for (const line of paneOutput.trimEnd().split('\n')) {
     const [paneId, windowId, index, windowName, windowActive, paneIndex, active, pid, cwd, command, startCommand] = line.split(DETAIL_SEPARATOR);
     if (!/^%\d+$/.test(paneId)) continue;
-    sections.push({ title: `Window ${index}: ${windowName} · Pane ${paneIndex}${windowActive === '1' && active === '1' ? ' · 当前' : ''}`, fields: [
-      { label: 'Pane ID', value: paneId }, { label: 'Window ID', value: windowId }, { label: '进程 PID', value: positiveNumber(pid) },
-      { label: '工作路径', value: cwd }, { label: '正在执行', value: command }, { label: '启动命令', value: startCommand || '默认 shell' }
+    sections.push({ title: `${t('windowPane', { index, name: windowName, pane: paneIndex })}${windowActive === '1' && active === '1' ? ` · ${t('current')}` : ''}`, fields: [
+      { label: 'paneId', value: paneId }, { label: 'windowId', value: windowId }, { label: 'processPid', value: positiveNumber(pid) },
+      { label: 'cwd', value: cwd }, { label: 'runningCommand', value: command }, { label: 'launchCommand', value: startCommand || t('defaultShell') }
     ] });
   }
-  return { title: window ? 'Window 详情' : '会话详情', sections, note: 'tmux 的会话共用服务端进程；每个 pane 单独列出进程 PID、当前工作路径和正在执行的程序。' };
+  return { title: window ? t('windowDetails') : t('sessionDetails'), sections, note: t('tmuxDetailsNote') };
 }
 
 // Read process data only on demand. Never run commands inside the user's shell.
@@ -61,8 +62,8 @@ export async function processDetails(pid: number, execute: Runner, foreground = 
       : execute({ file: '/usr/sbin/lsof', args: ['-a', '-p', String(commandPid), '-d', 'cwd', '-Fn'] }).then(result => !result.code ? result.stdout.split('\n').find(line => line.startsWith('n'))?.slice(1) : undefined)
   ]);
   const fields: DetailField[] = [];
-  if (commandPid !== pid) fields.push({ label: '前台进程 PID', value: commandPid });
-  if (!result.code && result.stdout.trim()) fields.push({ label: '正在执行', value: result.stdout.trim() });
-  if (directory && path.isAbsolute(directory)) fields.push({ label: '工作路径', value: directory });
+  if (commandPid !== pid) fields.push({ label: 'foregroundPid', value: commandPid });
+  if (!result.code && result.stdout.trim()) fields.push({ label: 'runningCommand', value: result.stdout.trim() });
+  if (directory && path.isAbsolute(directory)) fields.push({ label: 'cwd', value: directory });
   return fields;
 }
