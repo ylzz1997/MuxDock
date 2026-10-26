@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.12
 
 - Add ten interface languages with editor-language detection, English fallback and an immediate language switch that preserves open terminals and UI state. Localize commands, settings, dialogs, search, session details and accessibility labels.
 
