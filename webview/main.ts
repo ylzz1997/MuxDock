@@ -219,25 +219,8 @@ function submitBatch(action: BatchAction) {
 function fitCurrent() {
   const entry = current();
   if (!entry || entry.element.clientWidth < 10 || entry.element.clientHeight < 10) return;
-  try {
-    entry.fit.fit();
-    requestAnimationFrame(() => {
-      if (entry !== current() || entry.element.clientWidth < 10 || entry.element.clientHeight < 10) return;
-      const root = entry.terminal.element;
-      const screen = root?.querySelector<HTMLElement>('.xterm-screen');
-      if (!root || !screen || !screen.offsetWidth || !screen.offsetHeight) return;
-
-      // Match FitAddon's scrollbar reservation, including when scrollback is disabled.
-      const scrollbar = root.querySelector<HTMLElement>('.xterm-scrollable-element > .scrollbar.vertical');
-      const scrollbarWidth = entry.terminal.options.scrollback === 0 ? 0 : (scrollbar?.offsetWidth ?? 0);
-
-      // Keep complete cells and leave unused space above and to the left of the grid.
-      root.style.width = `${screen.offsetWidth + scrollbarWidth + 5}px`;
-      const height = screen.offsetHeight;
-      root.style.height = `${height}px`;
-      root.style.top = `${Math.max(0, entry.element.clientHeight - height)}px`;
-    });
-  } catch { /* The view may be transitioning between visible and hidden. */ }
+  // Keep the grid's origin fixed as fitting adds or removes complete rows and columns.
+  try { entry.fit.fit(); } catch { /* The view may be transitioning between visible and hidden. */ }
 }
 function setWidth(value: number) {
   width = Math.max(170, Math.min(value, Math.max(170, app.clientWidth * .6)));

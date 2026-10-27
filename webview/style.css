@@ -301,7 +301,8 @@ button:focus-visible,
 
 .xterm {
   height: 100%;
-  margin-left: auto;
+  /* Fill the space below complete rows without shifting the character grid. */
+  background-color: var(--vscode-terminal-background, var(--vscode-panel-background, #181818));
 }
 
 .xterm-rows .muxdock-powerline {
@@ -318,7 +319,8 @@ button:focus-visible,
   pointer-events: none;
 }
 
-.xterm-viewport {
+.xterm .xterm-viewport {
+  background-color: transparent;
   scrollbar-width: thin;
 }
 
