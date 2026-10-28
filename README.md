@@ -42,7 +42,7 @@ The managers must be installed on the **workspace host**: locally for a local wo
 
 ## Getting started
 
-1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.12.vsix`.
+1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.13.vsix`.
 2. Open the Command Palette, search for **MuxDock**, and open the dock (`muxdock.open`). You can also select the **MuxDock** panel tab.
 3. Click a session in the right-hand tree to attach, or use the `+` beside a manager to create a named session.
 4. Use the terminal icon and shell name in the toolbar to select the default shell for new sessions. It starts with the workspace host's system default shell. Choose **Add command…** to save and select a command such as `codex`; it runs after shell initialization, and exiting the command returns to the shell. The selection and saved commands are remembered on that host. Use the × beside a saved command to remove it.

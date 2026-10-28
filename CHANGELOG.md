@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.13
+
+- Keep terminal content stable when resizing the dock or session sidebar, including applications such as Codex.
+- Fill unused space at the bottom and right edges with the terminal theme background to avoid dark gaps.
+
 ## 0.0.12
 
 - Add ten interface languages with editor-language detection, English fallback and an immediate language switch that preserves open terminals and UI state. Localize commands, settings, dialogs, search, session details and accessibility labels.
