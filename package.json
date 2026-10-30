@@ -35,7 +35,8 @@
     "abduco",
     "sessions",
     "persistent",
-    "multiplexer"
+    "multiplexer",
+    "herdr"
   ],
   "extensionKind": [
     "workspace"
@@ -169,6 +170,7 @@
             "zmx",
             "screen",
             "zellij",
+            "herdr",
             "shpool",
             "abduco",
             "a4"
@@ -181,6 +183,7 @@
               "zmx",
               "screen",
               "zellij",
+              "herdr",
               "shpool",
               "abduco",
               "a4"
@@ -261,14 +264,16 @@
     "vscode:prepublish": "npm run check && npm run build",
     "package": "vsce package --no-dependencies --out artifacts/",
     "test:windows:integration": "tsx test/windows-integration.ts",
-    "test:ui:windows": "node scripts/ui-windows.mjs"
+    "test:ui:windows": "node scripts/ui-windows.mjs",
+    "test:windows:new-backends": "tsx test/windows-new-backends.ts"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-search": "^0.16.0",
     "@xterm/addon-unicode11": "^0.9.0",
     "@xterm/xterm": "^6.0.0",
-    "node-pty": "1.1.0"
+    "node-pty": "1.1.0",
+    "smol-toml": "^1.9.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -196,11 +196,16 @@
   "ptyMissing": "Auxiliar PTY do MuxDock não encontrado.",
   "ptyPython": "Este ambiente requer Python 3 para o terminal. Instale e tente novamente.",
   "socket": "Socket",
-  "managerPlatform": "Este gerenciador não é compatível com este host. O Windows oferece suporte a psmux e Zellij; use um host Linux remoto para gerenciadores Unix.",
+  "managerPlatform": "Este gerenciador não é compatível com este host.",
   "psmuxExecutable": "Selecione psmux.exe para este gerenciador.",
   "zellijWindowsVersion": "O suporte nativo ao Windows requer Zellij 0.45.1 ou posterior.",
   "windowsCwdNote": "Os backends do Windows podem informar o diretório inicial após uma mudança de diretório. Estes caminhos são os últimos valores informados. Links relativos usam o diretório da conexão, a menos que o shell informe um novo diretório.",
   "zellijClientNotReady": "O cliente Zellij ainda não está pronto. Aguarde o terminal aparecer antes de alterar as abas.",
   "shellUnknownDrop": "Não foi possível identificar o shell atual. Solte o arquivo novamente em um prompt do PowerShell ou CMD.",
-  "cmdDropUnsupported": "O CMD expande % e ! nos caminhos. Use o PowerShell para inserir este caminho literalmente."
+  "cmdDropUnsupported": "O CMD expande % e ! nos caminhos. Use o PowerShell para inserir este caminho literalmente.",
+  "herdrName": "Use de 1 a 64 letras ASCII, dígitos, sublinhados, pontos ou hífens; comece com letra, dígito ou sublinhado.",
+  "herdrVersion": "É necessário Herdr 0.9.5 ou posterior.",
+  "herdrNotReady": "A sessão Herdr ainda não está pronta. Atualize e tente novamente.",
+  "agentStatus": "Estado do agente",
+  "tmuxWindowsText": "Esta versão do tmux-windows exige nomes de sessão/janela e caminhos iniciais ASCII. Use psmux ou Herdr para caminhos Unicode."
 }

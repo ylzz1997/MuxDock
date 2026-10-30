@@ -196,11 +196,16 @@
   "ptyMissing": "MuxDock PTY ヘルパーが見つかりません。",
   "ptyPython": "この環境のターミナル互換性には Python 3 が必要です。インストールして再試行してください。",
   "socket": "ソケット",
-  "managerPlatform": "このホストではこのマネージャーを使用できません。Windows は psmux と Zellij に対応しています。Unix 用マネージャーにはリモート Linux ホストを使用してください。",
+  "managerPlatform": "このホストではこのマネージャーを使用できません。",
   "psmuxExecutable": "このマネージャーには psmux.exe を選択してください。",
   "zellijWindowsVersion": "Windows ネイティブ対応には Zellij 0.45.1 以降が必要です。",
   "windowsCwdNote": "Windows バックエンドはディレクトリ変更後も起動時のパスを返す場合があります。ここには最後に報告された値を表示します。shell が新しい場所を報告しない限り、相対リンクには接続時のディレクトリを使用します。",
   "zellijClientNotReady": "Zellij クライアントの準備ができていません。端末が表示されてからタブを操作してください。",
   "shellUnknownDrop": "現在の shell を識別できません。PowerShell または CMD のプロンプトでファイルをもう一度ドロップしてください。",
-  "cmdDropUnsupported": "CMD はパス内の % と ! を展開します。このパスをそのまま挿入するには PowerShell を使用してください。"
+  "cmdDropUnsupported": "CMD はパス内の % と ! を展開します。このパスをそのまま挿入するには PowerShell を使用してください。",
+  "herdrName": "半角英数字、アンダースコア、ドット、ハイフンを1～64文字で指定し、英数字かアンダースコアで始めてください。",
+  "herdrVersion": "Herdr 0.9.5以降が必要です。",
+  "herdrNotReady": "Herdrセッションの準備ができていません。更新して再試行してください。",
+  "agentStatus": "エージェントの状態",
+  "tmuxWindowsText": "このtmux-windows版ではセッション名・ウィンドウ名・起動パスにASCII文字のみ使用できます。UnicodeパスにはpsmuxまたはHerdrを使用してください。"
 }

@@ -7,9 +7,17 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { detachZellijClients } from './session-control';
+import { createHerdrSession, herdrResult, herdrSnapshot, herdrWindows, parseHerdrSessions } from './herdr';
+export { parseHerdrSessions } from './herdr';
 
-export const LABELS: Record<ManagerId, string> = { tmux: 'tmux', psmux: 'psmux', zmx: 'zmx', screen: 'screen', zellij: 'Zellij', shpool: 'shpool', abduco: 'abduco', a4: 'a4' };
+export const LABELS: Record<ManagerId, string> = { tmux: 'tmux', psmux: 'psmux', zmx: 'zmx', screen: 'screen', zellij: 'Zellij', herdr: 'Herdr', shpool: 'shpool', abduco: 'abduco', a4: 'a4' };
 export const stripAnsi = (text: string) => text.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
+// The Windows tmux port joins argv with spaces before CreateProcessW.
+// Supply its missing quoting layer, separately from Node's CLI argv quoting.
+export const windowsTmuxArg = (value: string) => {
+  if (/[^\x20-\x7e]/.test(value)) throw new Error(t('tmuxWindowsText'));
+  return !/[\s"]/.test(value) && value ? value : `"${value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1')}"`;
+};
 
 export function parseTmuxSessions(text: string): SessionInfo[] {
   return text.trim().split(/\r?\n/).flatMap(line => {
@@ -103,7 +111,7 @@ export class Adapter {
     this.execute = id === 'zellij' && platform === 'win32' ? command => {
       const task = pending.then(() => execute(command)); pending = task.catch(() => {}); return task;
     } : execute;
-    this.capabilities = { rename: this.tmuxCompatible, kill: ['tmux', 'psmux', 'zmx', 'screen', 'zellij', 'shpool'].includes(id), windows: this.tmuxCompatible, detachAll: id !== 'zellij' || platform !== 'win32' };
+    this.capabilities = { rename: this.tmuxCompatible, kill: ['tmux', 'psmux', 'zmx', 'screen', 'zellij', 'herdr', 'shpool'].includes(id), windows: this.tmuxCompatible || id === 'herdr', detachAll: id !== 'herdr' && (id !== 'zellij' || platform !== 'win32') };
   }
   configure(settings: AdapterSettings) { this.settings = settings; this.probed = false; }
   command(args: string[]): Command {
@@ -123,10 +131,14 @@ export class Adapter {
     if (this.probed && !force) return !!this.executable;
     this.probed = true;
     this.executable = undefined; this.version = undefined; this.probeError = undefined;
-    if (this.platform === 'win32' && !['psmux', 'zellij'].includes(this.id) || this.platform !== 'win32' && this.id === 'psmux') {
+    if (this.platform === 'win32' && !['tmux', 'psmux', 'zellij', 'herdr'].includes(this.id) || this.platform !== 'win32' && this.id === 'psmux') {
       this.probeError = t('managerPlatform'); return false;
     }
-    this.executable = await findExecutable(this.id, this.settings.executable);
+    this.executable = await findExecutable(this.id, this.settings.executable, this.id === 'tmux' && this.platform === 'win32' ? async file => {
+      const result = await this.execute({ file, args: ['-V'] });
+      // psmux also ships a tmux.exe alias. Only the native tmux port belongs here.
+      return result.code === 0 && /^tmux .*win32/im.test(result.stdout) && !/psmux/i.test(result.stdout + result.stderr);
+    } : undefined);
     if (!this.executable) return false;
     const flags = this.id === 'tmux' ? ['-V'] : ['zmx', 'shpool'].includes(this.id) ? ['version'] : ['screen', 'abduco', 'a4'].includes(this.id) ? ['-v'] : ['--version'];
     const result = await this.execute(this.command(flags));
@@ -134,6 +146,12 @@ export class Adapter {
     this.version = (this.id === 'psmux' ? output.split(/\r?\n/).find(line => /^psmux /i.test(line)) : output.split(/\r?\n/)[0])?.slice(0, 100);
     if (result.code) { this.probeError = output; this.executable = undefined; return false; }
     if (this.id === 'psmux' && !this.version) { this.probeError = t('psmuxExecutable'); this.executable = undefined; return false; }
+    if (this.id === 'herdr') {
+      const version = /^herdr\s+(\d+)\.(\d+)\.(\d+)/i.exec(this.version || '');
+      if (!version || !(Number(version[1]) > 0 || Number(version[2]) > 9 || Number(version[2]) === 9 && Number(version[3]) >= 5)) {
+        this.probeError = t('herdrVersion'); this.executable = undefined; return false;
+      }
+    }
     if (this.id === 'zellij') {
       const version = /zellij (\d+)\.(\d+)\.(\d+)/i.exec(this.version || '');
       const modern = !!version && (Number(version[1]) > 0 || Number(version[2]) > 45 || Number(version[2]) === 45 && Number(version[3]) >= 1);
@@ -157,7 +175,7 @@ export class Adapter {
       tmux: ['-u', 'list-sessions', '-F', '#{session_id}|#{session_attached}|#{session_name}'],
       psmux: ['-u', 'list-sessions', '-F', '#{session_id}|#{session_attached}|#{session_name}'],
       zmx: ['list'], screen: ['-ls'], zellij: ['list-sessions', '--no-formatting'],
-      shpool: ['list', '--json'], abduco: [], a4: ['-l']
+      shpool: ['list', '--json'], abduco: [], a4: ['-l'], herdr: ['session', 'list', '--json']
     };
     const result = await this.execute(this.command(commands[this.id]));
     // GNU/macOS screen uses the exit status as a socket-count/status code, even for valid lists.
@@ -170,6 +188,15 @@ export class Adapter {
       const windowResult = await this.execute(this.command(['-u', 'list-windows', '-a', '-F', '#{session_id}|#{window_id}|#{window_index}|#{window_active}|#{window_panes}|#{window_name}']));
       const windows = parseTmuxWindows(requireSuccess(windowResult, t('readWindowsFailed')));
       return sessions.map(session => ({ ...session, windows: windows.get(session.id) || [] }));
+    }
+    if (this.id === 'herdr') {
+      const sessions = parseHerdrSessions(output);
+      for (const session of sessions) {
+        const snapshot = await this.herdrSnapshot(session);
+        session.windows = herdrWindows(snapshot);
+        session.detail = snapshot.panes.find(pane => pane.pane_id === snapshot.focused_pane_id)?.cwd;
+      }
+      return sessions;
     }
     const parsers = { zmx: parseZmx, screen: parseScreen, zellij: parseZellij, shpool: parseShpool, abduco: parseAbduco, a4: parseA4 };
     const sessions = parsers[this.id as keyof typeof parsers](output);
@@ -186,13 +213,22 @@ export class Adapter {
       tmux: ['attach-session', '-t', session.id], zmx: ['attach', session.name],
       psmux: ['attach-session', '-t', session.name],
       screen: ['-x', session.id], zellij: ['attach', session.name], shpool: ['attach', session.name],
-      abduco: ['-a', session.name], a4: ['-a', session.name]
+      abduco: ['-a', session.name], a4: ['-a', session.name], herdr: ['--session', session.name]
     };
     return this.clientCommand(commands[this.id]);
   }
   async shellDialect(session: SessionInfo): Promise<'powershell' | 'cmd' | undefined> {
     if (this.platform !== 'win32') return;
-    const result = await this.execute(this.command(this.id === 'psmux'
+    if (this.id === 'herdr') {
+      const snapshot = await this.herdrSnapshot(session);
+      if (!snapshot.focused_pane_id) return;
+      const info = herdrResult(requireSuccess(await this.execute(this.command(['--session', session.name, 'pane', 'process-info', '--pane', snapshot.focused_pane_id])), t('readProcessesFailed'))).process_info;
+      const shell = info?.foreground_processes?.find((item: { pid: number }) => item.pid === info.shell_pid)?.argv0 || '';
+      if (/(?:^|[\\/])(?:pwsh|powershell)(?:\.exe)?$/i.test(shell)) return 'powershell';
+      if (/(?:^|[\\/])cmd(?:\.exe)?$/i.test(shell)) return 'cmd';
+      return;
+    }
+    const result = await this.execute(this.command(this.tmuxCompatible
       ? ['display-message', '-p', '-t', session.id, '#{pane_start_command}']
       : ['--session', session.name, 'action', 'list-panes', '--all', '--json']));
     if (result.code) return;
@@ -207,18 +243,27 @@ export class Adapter {
     if (/(?:^|[\\/"\s])cmd(?:\.exe)?(?:["\s]|$)/i.test(command)) return 'cmd';
   }
   create(name: string, shell: string, environmentShell = shell, shellArgs?: string[]): Command {
+    if (this.id === 'herdr') throw new Error(t('herdrNotReady'));
+    if (this.id === 'tmux' && this.platform === 'win32') windowsTmuxArg(name);
     const args = shellArgs || (this.platform === 'win32' ? [] : ['-l']);
     const commands: Record<ManagerId, string[]> = {
-      tmux: ['new-session', '-s', name, shell, '-l'], zmx: ['attach', name, shell, '-l'], screen: ['-S', name, shell, '-l'],
+      tmux: ['new-session', '-s', name, ...(this.id === 'tmux' && this.platform === 'win32' ? ['--', windowsTmuxArg(shell), ...(args.length ? args.map(windowsTmuxArg) : [''])] : [shell, '-l'])], zmx: ['attach', name, shell, '-l'], screen: ['-S', name, shell, '-l'],
       psmux: ['new-session', '-s', name, '--', shell, ...args],
       zellij: this.platform === 'win32' ? ['attach', '--create', name, '--', shell, ...args] : ['--session', name, 'options', '--default-shell', shell],
       shpool: ['attach', '--dir', '.', '--cmd', ['/usr/bin/env', `SHELL=${shell}`, shell, '-l'].map(shellQuote).join(' '), name],
-      abduco: ['-c', name, shell, '-l'], a4: ['-a', name]
+      abduco: ['-c', name, shell, '-l'], a4: ['-a', name], herdr: []
     };
     return { ...this.clientCommand(commands[this.id]), env: { SHELL: this.id === 'a4' ? shell : environmentShell } };
   }
+  async createHerdr(name: string, shell: string, startup: string | undefined, cwd: string, storage: string): Promise<Command> {
+    return createHerdrSession(args => this.command(args), this.execute, name, shell, startup, cwd, storage);
+  }
+  private async herdrSnapshot(session: SessionInfo) {
+    return herdrSnapshot(requireSuccess(await this.execute(this.command(['--session', session.name, 'api', 'snapshot'])), t('readDetailsFailed')));
+  }
   async rename(session: SessionInfo, name: string): Promise<void> {
     if (!this.capabilities.rename) throw new Error(t('renameUnsupported'));
+    if (this.id === 'tmux' && this.platform === 'win32') windowsTmuxArg(name);
     requireSuccess(await this.execute(this.command(['rename-session', '-t', session.id, name])), t('renameFailed'));
   }
   async kill(session: SessionInfo): Promise<void> {
@@ -226,7 +271,7 @@ export class Adapter {
     const commands: Partial<Record<ManagerId, string[]>> = {
       tmux: ['kill-session', '-t', session.id], zmx: ['kill', session.name], screen: ['-S', session.id, '-X', 'quit'],
       psmux: ['kill-session', '-t', session.id],
-      zellij: ['kill-session', session.name], shpool: ['kill', session.name]
+      zellij: ['kill-session', session.name], shpool: ['kill', session.name], herdr: ['session', 'stop', session.name, '--json']
     };
     requireSuccess(await this.execute(this.command(commands[this.id]!)), t('killFailed'));
   }
@@ -290,6 +335,22 @@ export class Adapter {
     return JSON.parse(output);
   }
   async details(session: SessionInfo, window?: WindowInfo): Promise<SessionDetails> {
+    if (this.id === 'herdr') {
+      const snapshot = await this.herdrSnapshot(session);
+      const sections: SessionDetails['sections'] = [{ fields: [{ label: 'manager', value: 'Herdr' }, { label: 'sessionName', value: session.name },
+        { label: 'sessionId', value: session.id }, { label: 'windowCount', value: snapshot.tabs.length }] }];
+      for (const pane of snapshot.panes.filter(pane => !window || pane.tab_id === window.id)) {
+        const tab = snapshot.tabs.find(tab => tab.tab_id === pane.tab_id);
+        const info = herdrResult(requireSuccess(await this.execute(this.command(['--session', session.name, 'pane', 'process-info', '--pane', pane.pane_id])), t('readProcessesFailed'))).process_info;
+        sections.push({ title: `${tab?.label || pane.tab_id} · ${pane.pane_id}`, fields: [
+          { label: 'paneId', value: pane.pane_id }, { label: 'windowId', value: pane.tab_id }, { label: 'title', value: pane.terminal_title_stripped },
+          { label: 'cwd', value: pane.foreground_cwd || pane.cwd }, { label: 'terminalPid', value: info?.shell_pid },
+          { label: 'runningCommand', value: info?.foreground_processes?.map((process: { cmdline?: string }) => process.cmdline).filter(Boolean).join('\n') },
+          { label: 'agentStatus', value: pane.agent_status }
+        ] });
+      }
+      return { title: window ? t('windowDetails') : t('sessionDetails'), sections, note: t('detailsNote') };
+    }
     if (this.tmuxCompatible) {
       const target = window ? `${session.id}:${window.id}` : session.id;
       const [info, panes] = await Promise.all([
@@ -379,6 +440,13 @@ export class Adapter {
   async windowAction(action: 'select' | 'new' | 'rename' | 'kill', session: SessionInfo, window?: WindowInfo, name?: string): Promise<void> {
     if (!this.capabilities.windows) throw new Error(t('windowUnsupported'));
     if (action !== 'new' && !window) throw new Error(t('windowUnsupported'));
+    if (name && this.id === 'tmux' && this.platform === 'win32') windowsTmuxArg(name);
+    if (this.id === 'herdr') {
+      const args = action === 'new' ? ['create', '--label', name!, '--no-focus'] : action === 'select' ? ['focus', window!.id]
+        : action === 'rename' ? ['rename', window!.id, name!] : ['close', window!.id];
+      herdrResult(requireSuccess(await this.execute(this.command(['--session', session.name, 'tab', ...args])), t('windowActionFailed')));
+      return;
+    }
     if (this.id === 'zellij') {
       if (action === 'new' || action === 'select') {
         // A freshly spawned client takes time to finish terminal negotiation.

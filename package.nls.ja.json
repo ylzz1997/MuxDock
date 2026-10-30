@@ -1,5 +1,5 @@
 {
-  "extension.description": "tmux, psmux、zmx、screen、Zellij、shpool、abduco、a4 の永続セッションを一つのパネルで管理します。",
+  "extension.description": "tmux, psmux、zmx、screen、Zellij, Herdr、shpool、abduco、a4 の永続セッションを一つのパネルで管理します。",
   "command.open": "MuxDock: ターミナルパネルを開く",
   "command.refresh": "更新",
   "command.newSession": "新規セッション",

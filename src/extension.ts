@@ -13,6 +13,7 @@ import { MANAGER_IDS, isManagerId, validateName, type ManagerInfo, type ManagerI
 import { parseTerminalLink } from './links';
 import { resolveFileLink } from './file-links';
 import { run } from './runner';
+import { validateHerdrName } from './herdr';
 import { parseSessionBatch, runSessionBatch, type SessionTarget } from './batch-sessions';
 
 let activeProvider: DockProvider | undefined;
@@ -231,7 +232,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private async linkDirectories(key: string): Promise<string[]> {
     const connection = this.connections.list().find(info => info.key === key);
     const directories: string[] = [];
-    if (connection?.manager === 'tmux' && !connection.closed) {
+    if (process.platform !== 'win32' && connection?.manager === 'tmux' && !connection.closed) {
       const result = await run(this.adapters.get('tmux')!.command(['-u', 'display-message', '-p', '-t', connection.sessionId, '#{pane_current_path}']));
       const directory = result.stdout.trim();
       if (!result.code && path.isAbsolute(directory)) directories.push(directory);
@@ -263,11 +264,15 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       await this.launchTask;
       const shell = this.launchSettings.shell && this.shells.includes(this.launchSettings.shell) ? this.launchSettings.shell : this.defaultShell;
       const command = this.launchSettings.commands.find(item => item.id === this.launchSettings.commandId)?.command;
-      const launch = create ? await launchCommand(shell, command, path.join(this.context.globalStorageUri.fsPath, 'launchers')) : undefined;
+      const launch = create && managerId !== 'herdr' ? await launchCommand(shell, command, path.join(this.context.globalStorageUri.fsPath, 'launchers')) : undefined;
       const cwd = await this.cwd();
+      if (create && managerId === 'tmux' && process.platform === 'win32' && /[^\x20-\x7e]/.test(cwd)) throw new Error(t('tmuxWindowsText'));
       if (!create && revision !== this.activationRevision) return;
       const previous = this.connections.activeKey;
-      const connection = this.connections.connect(managerId, session, launch ? adapter.create(session.name, launch.file, shell, launch.args) : adapter.attach(session), cwd);
+      const connectCommand = create && managerId === 'herdr'
+        ? await adapter.createHerdr(session.name, shell, command, cwd, path.join(this.context.globalStorageUri.fsPath, 'launchers'))
+        : launch ? adapter.create(session.name, launch.file, shell, launch.args) : adapter.attach(session);
+      const connection = this.connections.connect(managerId, session, connectCommand, cwd);
       if (revision !== this.activationRevision && previous) this.connections.select(previous);
       this.publish();
       if (revision === this.activationRevision) this.post({ type: 'focus', key: connection.key });
@@ -324,6 +329,8 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       const name = await vscode.window.showInputBox({ title: t('newManagerSession', { manager: LABELS[selected.id] }), prompt: t('sessionNamePrompt'), placeHolder: 'my-project', ignoreFocusOut: true, validateInput: value => {
         const error = validateName(value);
         if (error) return error;
+        if (selected.id === 'tmux' && process.platform === 'win32' && /[^\x20-\x7e]/.test(value)) return t('tmuxWindowsText');
+        if (selected.id === 'herdr') return validateHerdrName(value) || (this.managers.find(manager => manager.id === 'herdr')?.sessions.some(session => session.name === value) ? t('nameExists') : undefined);
         if (['tmux', 'psmux'].includes(selected.id) && value.includes('.')) return t('tmuxDot');
         if (this.managers.find(manager => manager.id === selected.id)?.sessions.some(session => session.name === value)) return t('nameExists');
         return undefined;
@@ -461,7 +468,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
         const window = action !== 'new' ? this.resolveWindow(session, m.window) : undefined;
         if (action === 'select') { await this.connect(adapter.id, session, false, revision); if (revision === this.activationRevision) await adapter.windowAction(action, session, window); }
         if (action === 'new' || action === 'rename') {
-          const name = await vscode.window.showInputBox({ title: action === 'new' ? t('newTmuxWindow') : t('renameTmuxWindow'), value: window?.name, ignoreFocusOut: true, validateInput: validateName });
+          const name = await vscode.window.showInputBox({ title: action === 'new' ? t('newTmuxWindow') : t('renameTmuxWindow'), value: window?.renameName || window?.name, ignoreFocusOut: true, validateInput: value => validateName(value) || (adapter.id === 'tmux' && process.platform === 'win32' && /[^\x20-\x7e]/.test(value) ? t('tmuxWindowsText') : undefined) });
           if (name) {
             if (adapter.id === 'zellij' && action === 'new') await this.connect(adapter.id, session, false, revision);
             await adapter.windowAction(action, session, window, name);

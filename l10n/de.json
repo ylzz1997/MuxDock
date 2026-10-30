@@ -196,11 +196,16 @@
   "ptyMissing": "MuxDock-PTY-Hilfsprogramm nicht gefunden.",
   "ptyPython": "Diese Umgebung benötigt Python 3 für das Terminal. Installieren und erneut versuchen.",
   "socket": "Socket",
-  "managerPlatform": "Dieser Manager wird auf diesem Host nicht unterstützt. Windows unterstützt psmux und Zellij; verwenden Sie für Unix-Manager einen entfernten Linux-Host.",
+  "managerPlatform": "Dieser Manager wird auf diesem Host nicht unterstützt.",
   "psmuxExecutable": "Wählen Sie für diesen Manager psmux.exe aus.",
   "zellijWindowsVersion": "Native Windows-Unterstützung erfordert Zellij 0.45.1 oder neuer.",
   "windowsCwdNote": "Windows-Backends können nach einem Verzeichniswechsel weiterhin das Startverzeichnis melden. Angezeigt werden die zuletzt gemeldeten Werte. Relative Links verwenden das Verzeichnis beim Verbindungsaufbau, sofern die Shell kein neues meldet.",
   "zellijClientNotReady": "Der Zellij-Client ist noch nicht bereit. Warten Sie auf das Terminal, bevor Sie Tabs ändern.",
   "shellUnknownDrop": "Die aktuelle Shell konnte nicht erkannt werden. Ziehen Sie die Datei erneut an einer PowerShell- oder CMD-Eingabeaufforderung hinein.",
-  "cmdDropUnsupported": "CMD expandiert % und ! in Pfaden. Verwenden Sie PowerShell, um diesen Pfad unverändert einzufügen."
+  "cmdDropUnsupported": "CMD expandiert % und ! in Pfaden. Verwenden Sie PowerShell, um diesen Pfad unverändert einzufügen.",
+  "herdrName": "1–64 ASCII-Buchstaben, Ziffern, Unterstriche, Punkte oder Bindestriche; mit Buchstabe, Ziffer oder Unterstrich beginnen.",
+  "herdrVersion": "Herdr 0.9.5 oder neuer ist erforderlich.",
+  "herdrNotReady": "Die Herdr-Sitzung ist noch nicht bereit. Aktualisieren und erneut versuchen.",
+  "agentStatus": "Agentenstatus",
+  "tmuxWindowsText": "Diese tmux-windows-Version benötigt ASCII-Sitzungs-/Fensternamen und Startpfade. Für Unicode-Pfade psmux oder Herdr verwenden."
 }

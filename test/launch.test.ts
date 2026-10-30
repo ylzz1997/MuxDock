@@ -44,9 +44,9 @@ test('launch wrappers execute commands with quotes once and leave a usable shell
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('every manager applies the chosen shell when creating and preserves native attachment', async () => {
+test('direct-launch managers apply the chosen shell and preserve native attachment', async () => {
   const shell = "/tmp/a b's shell";
-  for (const id of MANAGER_IDS.filter(id => id !== 'psmux')) {
+  for (const id of MANAGER_IDS.filter(id => id !== 'psmux' && id !== 'herdr')) {
     const adapter = new Adapter(id, { executable: '/bin/echo' }, async () => ({ code: 0, stdout: '', stderr: '' }));
     await adapter.probe();
     const create = adapter.create('profile-test', shell);

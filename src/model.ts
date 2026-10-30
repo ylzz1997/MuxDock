@@ -1,7 +1,7 @@
 import { t } from './i18n';
-export const MANAGER_IDS = ['tmux', 'psmux', 'zmx', 'screen', 'zellij', 'shpool', 'abduco', 'a4'] as const;
+export const MANAGER_IDS = ['tmux', 'psmux', 'zmx', 'screen', 'zellij', 'herdr', 'shpool', 'abduco', 'a4'] as const;
 export type ManagerId = typeof MANAGER_IDS[number];
-export interface WindowInfo { id: string; index: number; name: string; active: boolean; panes: number }
+export interface WindowInfo { id: string; index: number; name: string; renameName?: string; active: boolean; panes: number }
 export interface SessionInfo {
   id: string;
   name: string;

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add Herdr 0.9.5+ session discovery, creation, attach/detach, stop, tab navigation and pane details with Agent status. New sessions honor the selected shell and run saved startup commands once.
+- Support native tmux-windows through the existing tmux manager, distinguish it from psmux's tmux.exe alias, and quote its Windows launch arguments correctly.
+- Keep Herdr session rename and disconnect-all unavailable. Guard tmux-windows' ASCII-only names and startup paths instead of allowing failed launches or corrupted names.
+
 ## 0.0.14
 
 - Add native Windows support for psmux and Zellij, including bundled ConPTY binaries, executable discovery and PowerShell/CMD startup commands.

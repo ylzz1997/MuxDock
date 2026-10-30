@@ -22,8 +22,13 @@ const appDirs = [editorDir, ...(await readdir(editorDir)).map(name => path.join(
 const cli = appDirs.map(dir => path.join(dir, 'resources/app/out/cli.js')).find(existsSync);
 assert.ok(cli, 'editor CLI found');
 const binaries = JSON.parse(await readFile('.test-tools/executables.windows.json', 'utf8'));
+binaries.tmux ||= path.join(process.env.LOCALAPPDATA, 'Programs/tmux-windows/tmux.exe');
+binaries.herdr ||= path.join(process.env.LOCALAPPDATA, 'Programs/Herdr/bin/herdr.exe');
+const managers = (process.env.MUXDOCK_TEST_MANAGERS || 'psmux,zellij').split(',');
+assert.ok(managers.every(id => ['tmux', 'psmux', 'zellij', 'herdr'].includes(id)));
+const tmuxLike = id => ['tmux', 'psmux'].includes(id);
 const vsix = path.resolve(process.env.MUXDOCK_USE_VSIX || 'artifacts/muxdock-0.0.14.vsix');
-const config = { psmux: path.join(evidence, 'psmux.conf'), zellij: path.join(evidence, 'zellij.kdl') };
+const config = { psmux: path.join(evidence, 'psmux.conf'), tmux: path.join(evidence, 'tmux.conf'), zellij: path.join(evidence, 'zellij.kdl'), herdr: path.join(evidence, 'herdr.toml') };
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const until = async (fn, label, timeout = 30000) => {
   const deadline = Date.now() + timeout;
@@ -34,13 +39,15 @@ const quote = value => `'${value.replaceAll("'", "''")}'`;
 await mkdir(evidence, { recursive: true }); await mkdir(path.join(user, 'User'), { recursive: true });
 await writeFile(config.psmux, `set -g default-shell ${JSON.stringify(binaries.pwsh.replaceAll('\\', '/'))}\nset -g automatic-rename off\n`);
 await writeFile(config.zellij, `show_release_notes false\nshow_startup_tips false\nsession_serialization false\ndefault_shell ${JSON.stringify(binaries.pwsh)}\n`);
-const env = { ...process.env, PSMUX_DATA_DIR: path.join(evidence, 'psmux-data'), ZELLIJ_SOCKET_DIR: path.join(evidence, 'zellij-sockets') };
+await writeFile(config.tmux, await readFile(config.psmux));
+await writeFile(config.herdr, 'onboarding = false\n[update]\nversion_check = false\nmanifest_check = false\n');
+const env = { ...process.env, APPDATA: path.join(evidence, 'roaming'), HERDR_CONFIG_PATH: config.herdr, PSMUX_DATA_DIR: path.join(evidence, 'psmux-data'), ZELLIJ_SOCKET_DIR: path.join(evidence, 'zellij-sockets') };
 delete env.ELECTRON_RUN_AS_NODE;
 await writeFile(path.join(user, 'User/settings.json'), JSON.stringify({
   'security.workspace.trust.enabled': false, 'workbench.startupEditor': 'none', 'window.dialogStyle': 'custom',
   'chat.disableAIFeatures': true, 'muxdock.language': 'en', 'muxdock.refreshInterval': 1,
-  'muxdock.executables': { psmux: binaries.psmux, zellij: binaries.zellij },
-  'muxdock.arguments': { psmux: ['-L', token, '-f', config.psmux], zellij: ['--config', config.zellij] }
+  'muxdock.executables': { psmux: binaries.psmux, zellij: binaries.zellij, tmux: binaries.tmux, herdr: binaries.herdr },
+  'muxdock.arguments': { tmux: ['-L', token, '-f', config.tmux], psmux: ['-L', token, '-f', config.psmux], zellij: ['--config', config.zellij] }
 }, null, 2));
 const installation = await exec(executable, [cli, '--user-data-dir', user, '--extensions-dir', extensions, '--install-extension', vsix, '--force'], { env: { ...env, ELECTRON_RUN_AS_NODE: '1' }, windowsHide: true, timeout: 60000 });
 await writeFile(path.join(evidence, 'installation.txt'), installation.stdout + installation.stderr);
@@ -50,7 +57,7 @@ let log = ''; child.stdout.on('data', data => { log += data; }); child.stderr.on
 let browser, page, frame;
 const names = [];
 const checks = [];
-const backend = (id, args) => exec(binaries[id], [...(id === 'psmux' ? ['-L', token, '-f', config[id]] : ['--config', config[id]]), ...args], { env, windowsHide: true, timeout: 10000 });
+const backend = (id, args) => exec(binaries[id], [...(tmuxLike(id) ? ['-L', token, '-f', config[id]] : id === 'zellij' ? ['--config', config[id]] : []), ...args], { env, windowsHide: true, timeout: 10000 });
 try {
   await until(async () => { try { return (await fetch(`http://127.0.0.1:${port}/json/version`)).ok; } catch { return false; } }, 'debug port', 45000);
   browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
@@ -71,12 +78,11 @@ try {
   };
   frame = await dock();
   await frame.evaluate(() => window.addEventListener('message', event => { if (event.data.type === 'snapshot') window.muxdockTestSnapshot = event.data.state; }));
-  await frame.locator('[data-node="psmux"]').waitFor(); await frame.locator('[data-node="zellij"]').waitFor();
-  assert.equal(await frame.locator('[data-node="tmux"]').count(), 0);
-  checks.push('installed VSIX loads bundled native dependencies; distinct psmux and Zellij discovery');
+  for (const id of managers) await frame.locator(`[data-node="${id}"]`).waitFor();
+  checks.push('installed VSIX loads bundled dependencies and discovers selected managers');
   const input = page.locator('.quick-input-widget input[type="text"]');
-  for (const id of ['psmux', 'zellij']) {
-    const name = `${token}_${id}_中`; names.push({ id, name });
+  for (const id of managers) {
+    const name = `${token}_${id}${tmuxLike(id) && id !== 'psmux' || id === 'herdr' ? '' : '_中'}`; names.push({ id, name });
     await frame.locator(`[data-node="${id}"]`).getByRole('button', { name: 'New session', exact: true }).click();
     await input.waitFor({ state: 'visible' }); await input.fill(name); await input.press('Enter');
     const row = frame.getByRole('treeitem', { name, exact: true }); await row.waitFor();
@@ -98,10 +104,10 @@ try {
     await until(async () => (await readFile(dropResult, 'utf8').catch(() => '')) === dropped.replaceAll('\\', '/'), `${id} literal file drop`);
     checks.push(`${id}: simulated Explorer drop preserves spaces, Unicode, apostrophe, &, brackets and $ literally`);
     await row.click({ button: 'right' }); await frame.getByRole('menuitem', { name: 'Session details', exact: true }).click();
-    await until(async () => (await frame.locator('.session-details').textContent()).includes('initial directory'), `${id} native details`);
+    await until(async () => (await frame.locator('.session-details').textContent()).includes(id === 'herdr' ? 'Agent status' : 'initial directory'), `${id} native details`);
     await frame.getByRole('button', { name: 'Close details', exact: true }).click();
     await row.click({ button: 'right' });
-    assert.equal(await frame.getByRole('menuitem', { name: 'Rename session', exact: true }).count(), id === 'psmux' ? 1 : 0);
+    assert.equal(await frame.getByRole('menuitem', { name: 'Rename session', exact: true }).count(), tmuxLike(id) ? 1 : 0);
     await frame.getByRole('menuitem', { name: 'New window', exact: true }).click();
     await input.waitFor({ state: 'visible' }); await input.fill('ui_window'); await input.press('Enter');
     const windowRow = frame.getByRole('treeitem', { name: /\d+: ui_window/ }); await windowRow.waitFor(); await windowRow.click();
@@ -111,6 +117,11 @@ try {
     await row.click();
     await until(async () => (await row.getAttribute('class')).includes('is-connected'), `${id} reattached`);
     await delay(4000);
+    const continuity = path.join(evidence, `${id}-continuity.txt`);
+    await terminal.focus();
+    await page.keyboard.insertText(`$global:MuxDockReloadProof = '${token}_${id}'; [IO.File]::WriteAllText(${quote(continuity)}, ('{0}:{1}' -f $PID, $global:MuxDockReloadProof))`);
+    await page.keyboard.press('Enter');
+    await until(async () => (await readFile(continuity, 'utf8').catch(() => '')).includes(`${token}_${id}`), `${id} continuity marker`);
     await writeFile(path.join(evidence, `${id}-snapshot.json`), JSON.stringify(await frame.evaluate(() => window.muxdockTestSnapshot), null, 2));
     assert.ok(await row.getAttribute('class').then(value => value.includes('is-connected')));
     checks.push(`${id}: UI create, Unicode input, native details, capability menu, new/select window, close/reattach`);
@@ -122,16 +133,17 @@ try {
     await frame.locator('.connection-status.connected').waitFor();
     const reloaded = path.join(evidence, `${id}-reloaded.txt`);
     await frame.locator('.terminal-instance:not([hidden]) .xterm-helper-textarea').focus();
-    await page.keyboard.insertText(`[IO.File]::WriteAllText(${quote(reloaded)}, 'RELOADED_中文')`); await page.keyboard.press('Enter');
-    await until(async () => (await readFile(reloaded, 'utf8').catch(() => '')) === 'RELOADED_中文', `${id} interactive after editor reload`);
-    checks.push(`${id}: session survives editor reload and reconnects`);
+    await page.keyboard.insertText(`[IO.File]::WriteAllText(${quote(reloaded)}, ('{0}:{1}' -f $PID, $global:MuxDockReloadProof))`); await page.keyboard.press('Enter');
+    const expected = await readFile(path.join(evidence, `${id}-continuity.txt`), 'utf8');
+    await until(async () => (await readFile(reloaded, 'utf8').catch(() => '')) === expected, `${id} same shell PID and memory after editor reload`);
+    checks.push(`${id}: same shell PID and in-memory value survive editor reload and reconnect`);
   }
   await writeFile(path.join(evidence, 'result.json'), JSON.stringify({ editor, status: 'PASS', vsix, checks }, null, 2));
   console.log(`${editor}: PASS ${checks.length} checks; ${evidence}`);
 } catch (error) {
   if (frame) await writeFile(path.join(evidence, 'failure-snapshot.json'), JSON.stringify(await frame.evaluate(() => window.muxdockTestSnapshot).catch(() => null), null, 2) || 'null');
-  for (const id of ['psmux', 'zellij']) {
-    const result = await backend(id, id === 'psmux' ? ['list-sessions', '-F', '#{session_id}|#{session_name}|#{session_attached}'] : ['list-sessions', '--no-formatting']).catch(error => ({ stdout: error.stdout || '', stderr: error.stderr || error.message }));
+  for (const id of managers) {
+    const result = await backend(id, tmuxLike(id) ? ['list-sessions', '-F', '#{session_id}|#{session_name}|#{session_attached}'] : id === 'herdr' ? ['session', 'list', '--json'] : ['list-sessions', '--no-formatting']).catch(error => ({ stdout: error.stdout || '', stderr: error.stderr || error.message }));
     await writeFile(path.join(evidence, `${id}-failure-state.txt`), result.stdout + result.stderr);
   }
   if (page) await page.screenshot({ path: path.join(evidence, 'failure.png') }).catch(() => {});
@@ -142,6 +154,6 @@ try {
   // Only this isolated editor process and its descendants are owned by this test.
   const script = `$all = @(Get-CimInstance Win32_Process); $roots = @($all | Where-Object { $_.CommandLine -and $_.CommandLine.Contains(${quote(user)}) } | Select-Object -ExpandProperty ProcessId); $ids = [System.Collections.Generic.HashSet[int]]::new(); foreach ($p in $roots) { [void]$ids.Add($p) }; do { $added = $false; foreach ($p in $all) { if ($ids.Contains([int]$p.ParentProcessId) -and $ids.Add([int]$p.ProcessId)) { $added = $true } } } while ($added); foreach ($p in $ids) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }`;
   await exec(binaries.powershell, ['-NoProfile', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], { windowsHide: true }).catch(() => {});
-  for (const { id, name } of names) await backend(id, id === 'psmux' ? ['kill-session', '-t', name] : ['kill-session', name]).catch(() => {});
-  await backend('psmux', ['kill-server']).catch(() => {});
+  for (const { id, name } of names) await backend(id, tmuxLike(id) ? ['kill-session', '-t', name] : id === 'herdr' ? ['session', 'stop', name, '--json'] : ['kill-session', name]).catch(() => {});
+  for (const id of managers.filter(tmuxLike)) await backend(id, ['kill-server']).catch(() => {});
 }

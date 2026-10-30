@@ -5,6 +5,8 @@ behavior before integration. MuxDock 0.0.14 now enables native psmux and Zellij
 on Windows, with bundled ConPTY binaries, shell launchers, Windows paths,
 session details, window/tab navigation and version-gated operations.
 
+The unreleased Herdr/tmux-windows addition is recorded in the final section.
+
 Production acceptance tests are separate from the intentionally failing
 capability probes: `npm run test:windows:integration` exercises the actual
 adapters and connection code, and `npm run test:ui:windows` installs the VSIX in
@@ -234,3 +236,116 @@ Sources: [psmux compatibility](https://github.com/psmux/psmux/blob/master/docs/c
 [Zellij changelog](https://github.com/zellij-org/zellij/blob/main/CHANGELOG.md),
 [node-pty Windows handle race](https://github.com/microsoft/node-pty/issues/921),
 [node-pty natural-exit resource lifetime](https://github.com/microsoft/node-pty/issues/965).
+
+## Herdr and tmux-windows addition (unreleased)
+
+Measured on the same Windows x64 host on 2026-10-30. The working tree adds
+Herdr as a manager and enables native tmux-windows under the existing `tmux`
+manager. These changes are not part of the published 0.0.14 package.
+
+Official release archives were downloaded and their published SHA-256 digests
+verified before extraction into user-local directories. Both directories were
+added to the user PATH:
+
+| Backend | Tested release | Executable |
+| --- | --- | --- |
+| Herdr | 0.9.5 | `%LOCALAPPDATA%/Programs/Herdr/bin/herdr.exe` |
+| tmux-windows | v3.6a-win32.7 (`tmux 3.6a-win32`) | `%LOCALAPPDATA%/Programs/tmux-windows/tmux.exe` |
+
+| Capability | Herdr 0.9.5 | tmux-windows 3.6a-win32.7 |
+| --- | --- | --- |
+| Discover, create, list and attach | Pass; running sessions only | Pass; psmux's `tmux.exe` alias excluded |
+| PowerShell 7, Windows PowerShell 5.1, CMD | Pass | Pass |
+| Saved startup command executes once | Pass | Pass |
+| Interactive input and resize | Pass | Pass |
+| Client close, heartbeat progress and same shell PID on reconnect | Pass | Pass |
+| Ctrl+C in PowerShell 7 and further input after reconnect | Pass | Pass |
+| Create, rename, select and close tabs/windows by stable ID | Pass; workspace-qualified tab IDs | Pass; native window IDs |
+| Session details | Pane cwd, shell PID, processes, Agent status | Native session and pane metadata |
+| Rename session | Disabled; no supported CLI operation | Pass; session ID retained |
+| Disconnect all clients | Disabled; no verified session-wide operation | Pass with two clients |
+| Stop only the requested session | Pass; saved layout retained | Pass |
+| Unicode session/window names | ASCII session names; Unicode tab labels pass | Unsupported in tested CLI; guarded before mutations |
+| Unicode startup directory | Pass, including spaces, apostrophe, `&`, brackets | Unsupported in tested port; guarded before creation |
+| Unicode input and simulated literal Explorer file drops | Pass | Pass |
+| Editor reload and reconnect | Pass in VS Code and Cursor | Pass in VS Code and Cursor |
+
+### Implementation findings
+
+- Herdr session discovery includes a stopped `default` placeholder and saved
+  stopped sessions. MuxDock shows running sessions and rejects creation with
+  any already-known name, including a saved stopped session. Names use
+  `[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}`.
+- New Herdr sessions copy the existing TOML configuration into extension
+  storage, setting `terminal.default_shell` and disabling onboarding in that
+  copy. User configuration is preserved. The native launcher creates the
+  initial workspace in the requested directory; `pane run` submits the saved
+  startup command once. It is never retried after a lost acknowledgement.
+- Herdr must daemonize through its own launcher. Direct Node child processes
+  died on editor reload; `detached: true` instead caused descendant shells to
+  ignore Ctrl+C. A temporary PTY client now uses Herdr's own Windows daemon
+  startup, including its escape from kill-on-close jobs, and is released after
+  initialization. Backend and editor acceptance tests pass with this path.
+- Herdr attaches its full TUI. MuxDock exposes its sessions and tabs, including
+  workspace labels when multiple workspaces exist. It does not implement the
+  native browser interface, direct pane rendering or Agent notifications.
+- Native tmux discovery checks the version banner and continues past psmux's
+  `tmux.exe` alias. Both managers can coexist without duplicate discovery.
+- tmux-windows joins pane shell argv with spaces before `CreateProcessW`.
+  MuxDock supplies the missing Windows argument quoting. A shell with no args
+  needs an empty extra argv to avoid the port's single-argument `/c` path.
+- The tested tmux port corrupts Unicode CLI names and fails Unicode startup
+  directories. This differs from Unicode terminal input, which passed. MuxDock
+  rejects affected names, shell argv and startup directories with a localized
+  explanation. Native tmux also does not supply trusted live Windows cwd
+  tracking; relative file links use the extension's existing fallback paths.
+
+### Reproduction and acceptance results
+
+```powershell
+npm run check
+npm test
+npm run test:windows:new-backends
+$env:MUXDOCK_TEST_BACKEND = 'herdr'
+npm run test:windows:new-backends
+Remove-Item Env:\MUXDOCK_TEST_BACKEND
+npm run test:windows:integration
+npx vsce package --no-dependencies --out artifacts/muxdock-development.vsix
+$env:MUXDOCK_USE_VSIX = 'artifacts/muxdock-development.vsix'
+$env:MUXDOCK_TEST_MANAGERS = 'tmux,herdr'
+npm run test:ui:windows
+$env:MUXDOCK_TEST_EDITOR = 'cursor'
+npm run test:ui:windows
+```
+
+- Portable unit suite: **65 passed, 4 platform skips, 0 failed**. TypeScript
+  checks pass. The skips cover POSIX-only execution on this Windows host.
+- New production integration: **4 groups per backend**, covering the three
+  shells and lifecycle/tab operations. Herdr was rerun after the daemon-start
+  fix with a Unicode/special-character evidence directory.
+- Existing psmux/Zellij production regression: **8 groups passed**. This caught
+  and fixed a shared command-construction regression where the new tmux ASCII
+  guard was accidentally evaluated for psmux CMD launch arguments.
+- Packaged VSIX in isolated VS Code and Cursor profiles: **7 grouped checks
+  per editor**, covering both new managers, Unicode input, simulated literal
+  file drops, native details, capability menus, window/tab actions,
+  close/reattach and reload. A development package is used; the published
+  release artifact remains untouched. VS Code's installed updater lock was
+  bypassed by testing the existing official portable build.
+- Same-PID/in-memory reload assertions are included in the editor harness.
+  Both editors passed these assertions for both backends. The final editor
+  reports are `md_ui_vscode_1793356258582/result.json` and
+  `md_ui_cursor_1793356341476/result.json` under `.test-results/`.
+  Full machine restart, physical IME/drag gestures, Windows ARM64 and actual
+  macOS/Linux Herdr execution remain outside this Windows run.
+
+Generated transcripts, command JSON and editor screenshots are retained in
+`.test-results/md_new_*` and `.test-results/md_ui_*` and are ignored by Git.
+Each test uses its own sessions, tmux socket namespace and Herdr data/config
+directories, then terminates only those resources.
+
+Sources: [Herdr CLI reference](https://herdr.dev/tui/docs/cli-reference/),
+[Herdr 0.9.5 release](https://github.com/herdrdev/herdr/releases/tag/v0.9.5),
+[Herdr Windows daemon implementation](https://github.com/herdrdev/herdr/blob/v0.9.5/src/platform/windows.rs),
+[tmux-windows README](https://github.com/arndawg/tmux-windows/blob/master/README_WIN32.MD),
+[tmux-windows release](https://github.com/arndawg/tmux-windows/releases/tag/v3.6a-win32.7).

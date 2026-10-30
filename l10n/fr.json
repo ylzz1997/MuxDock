@@ -196,11 +196,16 @@
   "ptyMissing": "Assistant PTY MuxDock introuvable.",
   "ptyPython": "Cet environnement nécessite Python 3 pour le terminal. Installez-le puis réessayez.",
   "socket": "Socket",
-  "managerPlatform": "Ce gestionnaire n’est pas pris en charge sur cet hôte. Windows prend en charge psmux et Zellij ; utilisez un hôte Linux distant pour les gestionnaires Unix.",
+  "managerPlatform": "Ce gestionnaire n’est pas pris en charge sur cet hôte.",
   "psmuxExecutable": "Sélectionnez psmux.exe pour ce gestionnaire.",
   "zellijWindowsVersion": "La prise en charge native de Windows nécessite Zellij 0.45.1 ou ultérieur.",
   "windowsCwdNote": "Les backends Windows peuvent signaler le répertoire initial après un changement de répertoire. Ces chemins sont les dernières valeurs signalées. Les liens relatifs utilisent le répertoire de connexion, sauf si le shell signale un nouveau répertoire.",
   "zellijClientNotReady": "Le client Zellij n’est pas prêt. Attendez que le terminal s’affiche avant de modifier les onglets.",
   "shellUnknownDrop": "Le shell actuel n’a pas pu être identifié. Réessayez de déposer le fichier à une invite PowerShell ou CMD.",
-  "cmdDropUnsupported": "CMD développe % et ! dans les chemins. Utilisez PowerShell pour insérer ce chemin sans modification."
+  "cmdDropUnsupported": "CMD développe % et ! dans les chemins. Utilisez PowerShell pour insérer ce chemin sans modification.",
+  "herdrName": "Utilisez 1 à 64 lettres ASCII, chiffres, tirets bas, points ou tirets ; commencez par une lettre, un chiffre ou un tiret bas.",
+  "herdrVersion": "Herdr 0.9.5 ou ultérieur est requis.",
+  "herdrNotReady": "La session Herdr n’est pas prête. Actualisez et réessayez.",
+  "agentStatus": "État de l’agent",
+  "tmuxWindowsText": "Cette version de tmux-windows nécessite des noms de session/fenêtre et des chemins de démarrage ASCII. Utilisez psmux ou Herdr pour les chemins Unicode."
 }

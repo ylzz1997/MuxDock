@@ -11,13 +11,24 @@ import { droppedPaths, droppedPathText } from '../webview/drop';
 
 test('Windows exposes psmux separately and rejects Unix aliases without probing them', async () => {
   let calls = 0;
-  for (const id of ['tmux', 'zmx', 'screen', 'shpool', 'abduco', 'a4'] as const) {
+  for (const id of ['zmx', 'screen', 'shpool', 'abduco', 'a4'] as const) {
     const adapter = new Adapter(id, { executable: process.execPath }, async () => { calls++; return { code: 0, stdout: 'tmux 3.4.0', stderr: '' }; }, 'win32');
     assert.equal((await adapter.list()).available, false);
   }
   assert.equal(calls, 0);
   const impostor = new Adapter('psmux', { executable: process.execPath }, async () => ({ code: 0, stdout: 'tmux 3.4.0', stderr: '' }), 'win32');
   assert.equal(await impostor.probe(), false);
+});
+
+test('Windows tmux identifies the native port and rejects psmux aliases and Unix binaries', async () => {
+  for (const [stdout, stderr, available] of [['tmux 3.6a-win32', '', true], ['tmux 3.4.0', 'psmux 3.4.0', false], ['tmux 3.6a', '', false]] as const) {
+    const adapter = new Adapter('tmux', { executable: process.execPath }, async () => ({ code: 0, stdout, stderr }), 'win32');
+    assert.equal(await adapter.probe(), available);
+    if (available) {
+      assert.deepEqual(adapter.create('dev', 'C:\\Program Files\\pwsh.exe', undefined, ['-NoLogo']).args.slice(-4), ['dev', '--', '"C:\\Program Files\\pwsh.exe"', '-NoLogo']);
+      assert.equal(adapter.capabilities.rename, true);
+    }
+  }
 });
 
 test('psmux preserves argv, qualified window targets and its identity despite the tmux version banner', async () => {
@@ -27,6 +38,7 @@ test('psmux preserves argv, qualified window targets and its identity despite th
   }, 'win32');
   assert.equal(await adapter.probe(), true);
   assert.deepEqual(adapter.create('中', 'C:\\Program Files\\pwsh.exe', undefined, ['-NoLogo']).args, ['-L', 'scope', 'new-session', '-s', '中', '--', 'C:\\Program Files\\pwsh.exe', '-NoLogo']);
+  assert.deepEqual(adapter.create('cmd', 'C:\\Windows\\cmd.exe', undefined, ['/k', 'call', 'C:\\中文\\launch.cmd']).args.slice(-3), ['/k', 'call', 'C:\\中文\\launch.cmd']);
   assert.deepEqual(adapter.attach({ id: '$2', name: '中' }).args, ['-L', 'scope', 'attach-session', '-t', '中']);
   await adapter.windowAction('kill', { id: '$2', name: '中' }, { id: '@1', index: 0, name: 'same', active: true, panes: 1 });
   assert.deepEqual(calls.at(-1), ['-L', 'scope', 'kill-window', '-t', '$2:@1']);

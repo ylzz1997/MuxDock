@@ -1,5 +1,5 @@
 {
-  "extension.description": "하나의 터미널 패널에서 tmux, psmux, zmx, screen, Zellij, shpool, abduco, a4 영구 세션을 관리합니다.",
+  "extension.description": "하나의 터미널 패널에서 tmux, psmux, zmx, screen, Zellij, Herdr, shpool, abduco, a4 영구 세션을 관리합니다.",
   "command.open": "MuxDock: 터미널 패널 열기",
   "command.refresh": "새로 고침",
   "command.newSession": "새 세션",

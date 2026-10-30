@@ -36,6 +36,7 @@ await cp('src/pty-host.py', 'dist/pty-host.py');
 await cp('src/windows-pty-host.cjs', 'dist/windows-pty-host.cjs');
 await cp('src/session-processes.py', 'dist/session-processes.py');
 await cp('media/fonts/LICENSE-Powerline.txt', 'dist/LICENSE-Powerline.txt');
+await cp('node_modules/smol-toml/LICENSE', 'dist/LICENSE-smol-toml.txt');
 if (process.argv.includes('--watch')) {
   for (const option of options) { const ctx = await context(option); await ctx.watch(); }
 } else {

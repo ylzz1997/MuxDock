@@ -196,11 +196,16 @@
   "ptyMissing": "找不到 MuxDock PTY 輔助程序。",
   "ptyPython": "此環境需要 Python 3 作為終端兼容後端。請安裝 Python 3 後重試。",
   "socket": "Socket",
-  "managerPlatform": "此主機不支援此管理器。Windows 支援 psmux 和 Zellij；Unix 管理器請在遠端 Linux 主機中使用。",
+  "managerPlatform": "目前主機不支援此管理器。",
   "psmuxExecutable": "請為此管理器選擇 psmux.exe。",
   "zellijWindowsVersion": "Windows 原生支援需要 Zellij 0.45.1 或更新版本。",
   "windowsCwdNote": "Windows 後端切換目錄後仍可能回報啟動目錄。此處路徑是最後回報的值；除非 shell 回報新目錄，相對連結會使用連線時的目錄。",
   "zellijClientNotReady": "Zellij 用戶端尚未就緒。請等待終端出現後再操作分頁。",
   "shellUnknownDrop": "無法辨識目前的 shell。請在 PowerShell 或 CMD 提示字元重試拖放檔案。",
-  "cmdDropUnsupported": "CMD 會展開路徑中的 % 和 !。此路徑無法按原樣插入，請使用 PowerShell。"
+  "cmdDropUnsupported": "CMD 會展開路徑中的 % 和 !。此路徑無法按原樣插入，請使用 PowerShell。",
+  "herdrName": "使用 1–64 個英文字母、數字、底線、點或連字號，並以字母、數字或底線開頭。",
+  "herdrVersion": "需要 Herdr 0.9.5 或更新版本。",
+  "herdrNotReady": "Herdr 工作階段尚未就緒，請重新整理後再試。",
+  "agentStatus": "Agent 狀態",
+  "tmuxWindowsText": "此 tmux-windows 版本要求工作階段／視窗名稱及啟動路徑僅包含 ASCII 字元。中文路徑請使用 psmux 或 Herdr。"
 }
