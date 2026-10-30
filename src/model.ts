@@ -1,5 +1,5 @@
 import { t } from './i18n';
-export const MANAGER_IDS = ['tmux', 'zmx', 'screen', 'zellij', 'shpool', 'abduco', 'a4'] as const;
+export const MANAGER_IDS = ['tmux', 'psmux', 'zmx', 'screen', 'zellij', 'shpool', 'abduco', 'a4'] as const;
 export type ManagerId = typeof MANAGER_IDS[number];
 export interface WindowInfo { id: string; index: number; name: string; active: boolean; panes: number }
 export interface SessionInfo {
@@ -22,6 +22,7 @@ export interface ManagerInfo {
   capabilities: { rename: boolean; kill: boolean; windows: boolean; detachAll: boolean };
 }
 export interface Command { file: string; args: string[]; env?: Record<string, string> }
+export type ShellDialect = 'posix' | 'powershell' | 'cmd';
 export interface ConnectionInfo { key: string; manager: ManagerId; sessionId: string; name: string; closed?: boolean; cwd?: string }
 export interface Appearance { fontSize: number; fontFamily: string; scrollback: number; minimumContrastRatio: number }
 export interface LaunchProfile { id: string; name: string; detail: string; kind: 'shell' | 'command' }

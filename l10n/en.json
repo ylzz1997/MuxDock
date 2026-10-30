@@ -117,8 +117,8 @@
   "tmuxRenameDot": "Use underscores instead of dots in tmux session names.",
   "confirmKill": "End session “{name}”? Its running programs will also end.",
   "killSession": "End session",
-  "newTmuxWindow": "New tmux window",
-  "renameTmuxWindow": "Rename tmux window",
+  "newTmuxWindow": "New window",
+  "renameTmuxWindow": "Rename window",
   "confirmCloseWindow": "Close window “{name}”? Its running programs will also end.",
   "closeWindow": "Close window",
   "nameRequired": "Enter a session name.",
@@ -195,5 +195,12 @@
   "serverUnverified": "Cannot verify the session server. No clients were disconnected.",
   "ptyMissing": "MuxDock PTY helper not found.",
   "ptyPython": "This environment requires Python 3 for terminal compatibility. Install it and try again.",
-  "socket": "Socket"
+  "socket": "Socket",
+  "managerPlatform": "This manager is not supported on this host. Windows supports psmux and Zellij; use a remote Linux host for Unix managers.",
+  "psmuxExecutable": "Choose psmux.exe for this manager.",
+  "zellijWindowsVersion": "Native Windows support requires Zellij 0.45.1 or later.",
+  "windowsCwdNote": "Windows backends may report the initial directory after the shell changes directory. Treat these paths as last-reported values. Relative links use the connection directory unless the shell sends an updated directory.",
+  "zellijClientNotReady": "The Zellij client is not ready. Wait for the terminal before changing tabs.",
+  "shellUnknownDrop": "The current shell could not be identified. Retry the file drop at a PowerShell or CMD prompt.",
+  "cmdDropUnsupported": "CMD expands % and ! in paths. This path cannot be inserted literally; use PowerShell."
 }

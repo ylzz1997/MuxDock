@@ -1,5 +1,5 @@
 {
-  "extension.description": "在統一終端面板中管理 tmux、zmx、screen、Zellij、shpool、abduco 和 a4 持久會話。",
+  "extension.description": "在統一終端面板中管理 tmux, psmux、zmx、screen、Zellij、shpool、abduco 和 a4 持久會話。",
   "command.open": "MuxDock: 打開終端面板",
   "command.refresh": "刷新",
   "command.newSession": "新建會話",

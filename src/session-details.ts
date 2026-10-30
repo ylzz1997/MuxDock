@@ -36,7 +36,7 @@ export function tmuxDetails(sessionOutput: string, paneOutput: string, window?: 
     { kind: 'timestamp', label: 'sessionCreated', value: timestamp(created) }, { label: 'clientCount', value: attached },
     { label: 'windowCount', value: windows }, { label: 'initialPath', value: startPath }, { label: 'serverPid', value: positiveNumber(serverPid) }
   ] }];
-  for (const line of paneOutput.trimEnd().split('\n')) {
+  for (const line of paneOutput.trimEnd().split(/\r?\n/)) {
     const [paneId, windowId, index, windowName, windowActive, paneIndex, active, pid, cwd, command, startCommand] = line.split(DETAIL_SEPARATOR);
     if (!/^%\d+$/.test(paneId)) continue;
     sections.push({ title: `${t('windowPane', { index, name: windowName, pane: paneIndex })}${windowActive === '1' && active === '1' ? ` · ${t('current')}` : ''}`, fields: [

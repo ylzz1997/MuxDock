@@ -21,7 +21,7 @@ interface Saved { width: number; expanded: string[]; filter?: string; filterOpen
 const vscode = acquireVsCodeApi();
 const send = (message: unknown) => vscode.postMessage(message);
 const saved = vscode.getState();
-const expanded = new Set(saved?.expanded || ['tmux', 'zmx', 'screen', 'zellij', 'shpool', 'abduco', 'a4']);
+const expanded = new Set(saved?.expanded || MANAGER_IDS);
 let width = saved?.width || 258;
 let sidebarCollapsed = saved?.sidebarCollapsed === true;
 let snapshot: Snapshot = { locale: getLocale(), managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 12, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000, minimumContrastRatio: 4.5 }, launchProfiles: [], selectedLaunchProfile: 'system' };
@@ -81,7 +81,7 @@ const terminalHosts = get('.terminal-hosts');
 const clearTerminalDrop = attachTerminalDrop(get('.terminal-area'), () => {
   const entry = current();
   return entry && !entry.closed ? entry.terminal : undefined;
-});
+}, paths => send({ type: 'dropPaths', key: snapshot.activeKey, paths }));
 const filter = get<HTMLInputElement>('.filter');
 const searchWidget = new TerminalSearch(get('.terminal-content'), saved?.searchOptions, () => persist(), () => {
   if (current()) current()!.terminal.focus(); else get('.terminal-actions .icon-search').closest<HTMLButtonElement>('button')!.focus();
@@ -529,7 +529,7 @@ function renderTree() {
     shown++;
     const managerRow = row(manager.id, 0, manager.name, 'layers', manager.available, () => manager.available && toggle(manager.id));
     managerRow.classList.add('manager-row');
-    managerRow.title = manager.version || t('notInstalledHelp');
+    managerRow.title = manager.error || manager.version || t('notInstalledHelp');
     if (!manager.available) { managerRow.classList.add('unavailable'); managerRow.append(text('span', t('notInstalled'), 'count')); }
     else {
       managerRow.append(text('span', String(manager.sessions.length), 'count'));

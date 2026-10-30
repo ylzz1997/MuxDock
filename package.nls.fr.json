@@ -1,5 +1,5 @@
 {
-  "extension.description": "Gérez les sessions persistantes tmux, zmx, screen, Zellij, shpool, abduco et a4 dans un même panneau.",
+  "extension.description": "Gérez les sessions persistantes tmux, psmux, zmx, screen, Zellij, shpool, abduco et a4 dans un même panneau.",
   "command.open": "MuxDock: Ouvrir le panneau de terminal",
   "command.refresh": "Actualiser",
   "command.newSession": "Nouvelle session",

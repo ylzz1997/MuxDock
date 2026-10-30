@@ -1,8 +1,10 @@
 import type { Terminal } from '@xterm/xterm';
+import { droppedPathText } from '../src/shell-paths';
+export { droppedPathText } from '../src/shell-paths';
 
 type Transfer = Pick<DataTransfer, 'types' | 'getData'>;
 const formats = ['resourceurls', 'codefiles', 'application/vnd.code.uri-list', 'text/uri-list'];
-const validPath = (value: string) => value.startsWith('/') && !/[\x00-\x1f\x7f]/.test(value);
+const validPath = (value: string) => /^(?:\/|[a-z]:[\\/]|\\\\)/i.test(value) && !/[\x00-\x1f\x7f]/.test(value);
 
 function resourcePath(value: string): string | undefined {
   try {
@@ -10,7 +12,7 @@ function resourcePath(value: string): string | undefined {
     const uri = new URL(value);
     if (uri.protocol !== 'file:' && uri.protocol !== 'vscode-remote:') return;
     if (uri.protocol === 'file:' && uri.hostname && uri.hostname !== 'localhost') return;
-    const path = decodeURIComponent(uri.pathname);
+    const path = decodeURIComponent(uri.pathname).replace(/^\/(?=[a-z]:\/)/i, '');
     if (validPath(path)) return path;
   } catch { /* Ignore malformed resources and try the remaining transfer formats. */ }
 }
@@ -40,12 +42,7 @@ export function droppedPaths(transfer: Transfer): string[] {
   return result;
 }
 
-/** MuxDock runs on macOS/Linux hosts, including Remote SSH, WSL and containers. */
-export function droppedPathText(paths: string[]): string {
-  return paths.map(path => /^[\w/.:@%+=,-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`).join(' ');
-}
-
-export function attachTerminalDrop(element: HTMLElement, current: () => Pick<Terminal, 'paste' | 'focus'> | undefined): () => void {
+export function attachTerminalDrop(element: HTMLElement, current: () => Pick<Terminal, 'paste' | 'focus'> | undefined, pastePaths?: (paths: string[]) => void): () => void {
   const supported = (transfer: DataTransfer | null) => transfer?.types.some(type => formats.includes(type.toLowerCase()));
   const highlight = (accept: boolean) => element.classList.toggle('file-drop-target', accept);
   const clear = () => highlight(false);
@@ -70,7 +67,7 @@ export function attachTerminalDrop(element: HTMLElement, current: () => Pick<Ter
     if (!terminal) return;
     const paths = droppedPaths(event.dataTransfer!);
     if (!paths.length) return;
-    terminal.paste(droppedPathText(paths));
+    if (pastePaths) pastePaths(paths); else terminal.paste(droppedPathText(paths));
     // Switching focus during drop can interrupt Electron's source cleanup.
     requestAnimationFrame(() => { if (element.isConnected && current() === terminal) terminal.focus(); });
   }, true);

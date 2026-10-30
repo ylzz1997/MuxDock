@@ -7,7 +7,7 @@
     "color": "#102335",
     "theme": "dark"
   },
-  "version": "0.0.13",
+  "version": "0.0.14",
   "publisher": "muxdock",
   "repository": {
     "type": "git",
@@ -27,6 +27,7 @@
   "keywords": [
     "terminal",
     "tmux",
+    "psmux",
     "zmx",
     "screen",
     "zellij",
@@ -164,6 +165,7 @@
           "type": "array",
           "default": [
             "tmux",
+            "psmux",
             "zmx",
             "screen",
             "zellij",
@@ -175,6 +177,7 @@
             "type": "string",
             "enum": [
               "tmux",
+              "psmux",
               "zmx",
               "screen",
               "zellij",
@@ -251,18 +254,21 @@
     "check": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts",
     "test:integration": "tsx test/integration.ts",
+    "test:windows": "tsx test/windows-capabilities.ts",
     "test:ui": "node scripts/ui-smoke.mjs",
     "test:links": "node scripts/test-links.mjs",
     "icon:build": "node scripts/render-icon.mjs",
     "vscode:prepublish": "npm run check && npm run build",
-    "package": "vsce package --no-dependencies --out artifacts/"
+    "package": "vsce package --no-dependencies --out artifacts/",
+    "test:windows:integration": "tsx test/windows-integration.ts",
+    "test:ui:windows": "node scripts/ui-windows.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-search": "^0.16.0",
     "@xterm/addon-unicode11": "^0.9.0",
     "@xterm/xterm": "^6.0.0",
-    "node-pty": "^1.1.0"
+    "node-pty": "1.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -7,7 +7,8 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { Adapter, LABELS } from './adapters';
 import { Connections } from './connections';
 import { MAX_TERMINAL_CLIPBOARD_BYTES } from './clipboard';
-import { discoverShells, launchExecutable, launchProfiles, readLaunchSettings, systemShell, validateLaunchCommand, type LaunchSettings } from './launch';
+import { discoverShells, launchCommand, launchProfiles, readLaunchSettings, systemShell, validateLaunchCommand, type LaunchSettings } from './launch';
+import { droppedPathText } from './shell-paths';
 import { MANAGER_IDS, isManagerId, validateName, type ManagerInfo, type ManagerId, type SessionInfo, type Snapshot, type WindowInfo } from './model';
 import { parseTerminalLink } from './links';
 import { resolveFileLink } from './file-links';
@@ -223,7 +224,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   }
   private async cwd(): Promise<string> {
     const configured = vscode.workspace.getConfiguration('muxdock').get<string>('defaultDirectory', '');
-    const directory = configured ? configured.replace(/^~(?=\/)/, os.homedir()) : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir();
+    const directory = configured ? configured.replace(/^~(?=[\\/])/, os.homedir()) : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir();
     if (!(await stat(directory)).isDirectory()) throw new Error(t('cwdMissing', { directory }));
     return directory;
   }
@@ -254,7 +255,6 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private async connect(managerId: ManagerId, session: SessionInfo, create = false, revision = this.activationRevision) {
     return this.queueConnections(async () => {
       if (!create && revision !== this.activationRevision) return;
-      if (process.platform === 'win32') throw new Error(t('windowsUnsupported'));
       const adapter = this.adapters.get(managerId)!;
       const existing = this.connections.find(managerId, session);
       if (managerId === 'shpool' && session.attached && (!existing || existing.closed)) throw new Error(t('shpoolAttached'));
@@ -263,11 +263,11 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       await this.launchTask;
       const shell = this.launchSettings.shell && this.shells.includes(this.launchSettings.shell) ? this.launchSettings.shell : this.defaultShell;
       const command = this.launchSettings.commands.find(item => item.id === this.launchSettings.commandId)?.command;
-      const executable = create ? await launchExecutable(shell, command, path.join(this.context.globalStorageUri.fsPath, 'launchers')) : shell;
+      const launch = create ? await launchCommand(shell, command, path.join(this.context.globalStorageUri.fsPath, 'launchers')) : undefined;
       const cwd = await this.cwd();
       if (!create && revision !== this.activationRevision) return;
       const previous = this.connections.activeKey;
-      const connection = this.connections.connect(managerId, session, create ? adapter.create(session.name, executable, shell) : adapter.attach(session), cwd);
+      const connection = this.connections.connect(managerId, session, launch ? adapter.create(session.name, launch.file, shell, launch.args) : adapter.attach(session), cwd);
       if (revision !== this.activationRevision && previous) this.connections.select(previous);
       this.publish();
       if (revision === this.activationRevision) this.post({ type: 'focus', key: connection.key });
@@ -324,7 +324,7 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       const name = await vscode.window.showInputBox({ title: t('newManagerSession', { manager: LABELS[selected.id] }), prompt: t('sessionNamePrompt'), placeHolder: 'my-project', ignoreFocusOut: true, validateInput: value => {
         const error = validateName(value);
         if (error) return error;
-        if (selected.id === 'tmux' && value.includes('.')) return t('tmuxDot');
+        if (['tmux', 'psmux'].includes(selected.id) && value.includes('.')) return t('tmuxDot');
         if (this.managers.find(manager => manager.id === selected.id)?.sessions.some(session => session.name === value)) return t('nameExists');
         return undefined;
       } });
@@ -349,6 +349,18 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
       return;
     }
     if (m.type === 'input' && typeof m.key === 'string' && typeof m.data === 'string' && m.data.length <= 1024 * 1024) { this.connections.input(m.key, m.data); return; }
+    if (m.type === 'dropPaths' && typeof m.key === 'string' && m.key === this.connections.activeKey && Array.isArray(m.paths)) {
+      const paths = m.paths;
+      if (!paths.length || paths.length > 1024 || !paths.every(value => typeof value === 'string' && value.length <= 8192 && path.isAbsolute(value) && !/[\x00-\x1f\x7f]/.test(value))) return;
+      const connection = this.connections.list().find(info => info.key === m.key && !info.closed);
+      if (!connection) return;
+      const dialect = process.platform === 'win32' ? await this.adapters.get(connection.manager)!.shellDialect({ id: connection.sessionId, name: connection.name }) : 'posix';
+      if (!dialect) throw new Error(t('shellUnknownDrop'));
+      const text = droppedPathText(paths, dialect);
+      if (!text) throw new Error(t('cmdDropUnsupported'));
+      if (m.key === this.connections.activeKey) this.post({ type: 'paste', key: m.key, text });
+      return;
+    }
     if (m.type === 'ack' && typeof m.key === 'string' && typeof m.seq === 'number') { this.connections.acknowledge(m.key, m.seq); return; }
     if (m.type === 'resize' && typeof m.key === 'string') { this.connections.resize(m.key, Number(m.cols), Number(m.rows)); return; }
     if (m.type === 'refresh') { await this.refresh(true); return; }
@@ -443,14 +455,17 @@ class DockProvider implements vscode.WebviewViewProvider, vscode.Disposable {
           });
         }
       } else if (m.type === 'window') {
-        if (adapter.id !== 'tmux') return;
+        if (!adapter.capabilities.windows) return;
         if (!['select', 'new', 'rename', 'kill'].includes(String(m.action))) return;
         const action = m.action as 'select' | 'new' | 'rename' | 'kill';
         const window = action !== 'new' ? this.resolveWindow(session, m.window) : undefined;
         if (action === 'select') { await this.connect(adapter.id, session, false, revision); if (revision === this.activationRevision) await adapter.windowAction(action, session, window); }
         if (action === 'new' || action === 'rename') {
           const name = await vscode.window.showInputBox({ title: action === 'new' ? t('newTmuxWindow') : t('renameTmuxWindow'), value: window?.name, ignoreFocusOut: true, validateInput: validateName });
-          if (name) await adapter.windowAction(action, session, window, name);
+          if (name) {
+            if (adapter.id === 'zellij' && action === 'new') await this.connect(adapter.id, session, false, revision);
+            await adapter.windowAction(action, session, window, name);
+          }
         }
         if (action === 'kill') {
           const actionLabel = t('closeWindow');

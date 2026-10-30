@@ -2,13 +2,13 @@
 
 **Persistent terminal sessions. One dock.**
 
-MuxDock brings **tmux, zmx, screen, Zellij, shpool, abduco and a4** into a dedicated terminal panel in VS Code and Cursor. Work in the terminal on the left and browse managers, named sessions and tmux windows on the right.
+MuxDock brings **tmux, psmux, zmx, screen, Zellij, shpool, abduco and a4** into a dedicated terminal panel in VS Code and Cursor. Work in the terminal on the left and browse managers, named sessions and windows on the right.
 
 Your sessions belong to the underlying manager. Close a tab, detach or reload the editor, then reconnect to continue working.
 
 ## Features
 
-- **Seven managers in one place.** Discover installed tools and browse their existing sessions without replacing their configuration.
+- **Eight managers across Windows, macOS and Linux.** Discover installed tools and browse their existing sessions without replacing their configuration.
 - **A real interactive terminal.** Keep native keyboard shortcuts, pane layouts, status bars, shell prompts, ANSI colors and truecolor output.
 - **Drag files into the terminal.** Start dragging files or folders from the editor Explorer, then hold **Shift** and move into MuxDock's terminal area. Release when the area highlights. The terminal's header, footer and padding also accept drops. VS Code/Cursor require Shift to forward drops to extension webviews. Multiple selections are separated by spaces, special characters are shell-quoted, and paths are inserted without pressing Enter.
 - **Session tabs.** Switch between open terminals, close individual tabs, hide the tab bar or set a maximum tab count.
@@ -16,7 +16,7 @@ Your sessions belong to the underlying manager. Close a tab, detach or reload th
 - **Disconnect all clients.** Release every connection to a selected session, including external terminals, while preserving its background programs. Closed tabs keep their output and display a muted red underline and status circle.
 - **Batch session actions.** Choose **Batch actions** from the session panel's **…** menu, select sessions across managers, then disconnect their clients or end the sessions with one confirmation. Use the filter and select-all checkbox to narrow the selection; ending sessions requires manager support.
 - **Default shell or command.** Choose the shell used for new sessions, or save a startup command such as `codex` in the terminal toolbar.
-- **tmux window navigation.** Expand a session to select, create, rename or close its windows. Native shortcuts such as `Ctrl+B` keep working.
+- **Window and tab navigation.** Expand tmux or psmux sessions to manage windows, or Zellij 0.45.1+ sessions to manage tabs. Native keyboard shortcuts keep working.
 - **A compact session tree.** Open the filter with the magnifying glass, then collapse it when you are done. Choose which managers appear and in what order.
 - **More room for the terminal.** Collapse the session panel with the button at the far right of the terminal toolbar. Expand it from the same button; its width and visibility are remembered.
 - **Local and remote hosts.** Run the extension where your workspace lives, including Remote SSH, WSL and Dev Containers.
@@ -32,9 +32,9 @@ See [Adding translations](docs/LOCALIZATION.md) for the translation format and c
 ## Requirements
 
 - VS Code **1.95 or later**, or a compatible Cursor version.
-- A **macOS or Linux** extension host. On Windows, open a WSL or Linux Remote SSH workspace.
+- A **Windows, macOS or Linux** extension host. Native Windows supports **psmux** and **Zellij 0.45.1+**. Use a WSL or Linux Remote SSH workspace for Unix managers.
 - At least one supported manager installed on that host. MuxDock discovers installed tools; it does not install them.
-- **Python 3** on Linux hosts and on any host where the native PTY cannot be loaded. The extension includes native macOS PTY binaries for Apple Silicon and Intel.
+- **Python 3** on Linux hosts and Unix hosts where the native PTY cannot be loaded. The extension includes native macOS and Windows PTY binaries for ARM64 and x64. Native Windows does not require Python.
 
 Zellij, abduco and a4 also use Python 3 for session process inspection and disconnecting external clients on macOS and Linux. Details depend on the installed manager and host permissions; unavailable fields display **Not provided**. Screen reports an attachment state because its session listing does not expose an exact client count.
 
@@ -42,11 +42,11 @@ The managers must be installed on the **workspace host**: locally for a local wo
 
 ## Getting started
 
-1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.13.vsix`.
+1. Install **MuxDock** from your editor's Extensions view, or run **Extensions: Install from VSIX...** and select `muxdock-0.0.14.vsix`.
 2. Open the Command Palette, search for **MuxDock**, and open the dock (`muxdock.open`). You can also select the **MuxDock** panel tab.
 3. Click a session in the right-hand tree to attach, or use the `+` beside a manager to create a named session.
 4. Use the terminal icon and shell name in the toolbar to select the default shell for new sessions. It starts with the workspace host's system default shell. Choose **Add command…** to save and select a command such as `codex`; it runs after shell initialization, and exiting the command returns to the shell. The selection and saved commands are remembered on that host. Use the × beside a saved command to remove it.
-5. Expand a tmux session to browse its windows. Click a window to select it, or use its context menu for window actions.
+5. Expand a tmux, psmux or supported Zellij session to browse its windows/tabs. Click a child to select it, or use its context menu for actions.
 6. Use the tabs above the terminal to switch between open sessions. Each tab shows its session name and manager.
 
 Only installed managers are shown by default. After installing a tool, refresh the tree. If a binary is not on the extension host's search path, set its absolute path with `muxdock.executables`.
@@ -86,16 +86,21 @@ Screen restoration and scrollback after reconnecting depend on the manager. In p
 | Manager | Create / attach / detach | End session | Rename session | Child navigation |
 | --- | --- | --- | --- | --- |
 | tmux | Yes | Yes | Yes | Windows |
+| psmux (Windows) | Yes | Yes | Yes | Windows |
 | zmx | Yes | Yes | No | Sessions |
 | screen | Yes | Yes | No | Sessions |
-| Zellij | Yes | Yes | No | Sessions |
+| Zellij | Yes | Yes | No | Tabs on 0.45.1+ |
 | shpool | Yes | Yes | No | Sessions |
 | abduco | Yes | Use `exit` inside the session | No | Sessions |
 | a4 | Yes | Use `exit` inside the session | No | Sessions |
 
 - **tmux:** multiple clients attached to the same session share its current window. Selecting a window in MuxDock can also change the window shown by other clients.
 - **shpool:** a session accepts one attached client. MuxDock does not force another client's connection to detach.
-- New session names must start with a Unicode letter, digit or underscore. The remaining characters may also include hyphens and dots. For new tmux session names, use underscores instead of dots.
+- **Windows shells:** new sessions prefer PowerShell 7, then Windows PowerShell, then CMD. Saved commands run after shell initialization. CMD startup files use UTF-8; PowerShell startup commands do not change execution policy.
+- **Windows directories:** backend metadata can retain the initial directory after `Set-Location`. Details label this limitation; relative links use the connection/workspace directory unless the shell reports an updated directory. Absolute Windows paths and `file:///C:/...` links are supported. File drops use the detected shell's quoting; CMD paths containing `%`, `!` or quotes are refused to avoid expansion.
+- **Zellij on Windows:** session rename is disabled because 0.45.1 breaks subsequent connections after a rename. Disconnect-all uses the verified 0.45.1 paired-pipe contract and is disabled for other native Windows versions until tested. Creating/selecting a tab waits for an attached client to finish initialization.
+- **Windows discovery:** psmux has its own settings key (`psmux`); its `tmux.exe` alias is not listed a second time. WinGet's standard user installation paths are searched even when the editor has an older PATH. See [Windows capability findings](docs/WINDOWS-CAPABILITIES.md) for test coverage and limitations.
+- New session names must start with a Unicode letter, digit or underscore. The remaining characters may also include hyphens and dots. For new tmux and psmux session names, use underscores instead of dots.
 - This is a dedicated terminal panel. Tasks, debugging sessions and other extensions' terminal commands continue to use the editor's built-in Terminal.
 
 ## Settings

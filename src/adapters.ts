@@ -5,13 +5,14 @@ import { shellQuote } from './launch';
 import { positiveNumber, processDetails, sessionPath, timestamp, tmuxDetails, tmuxPaneFormat, tmuxSessionFormat, zmxRecords } from './session-details';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { detachZellijClients } from './session-control';
 
-export const LABELS: Record<ManagerId, string> = { tmux: 'tmux', zmx: 'zmx', screen: 'screen', zellij: 'Zellij', shpool: 'shpool', abduco: 'abduco', a4: 'a4' };
+export const LABELS: Record<ManagerId, string> = { tmux: 'tmux', psmux: 'psmux', zmx: 'zmx', screen: 'screen', zellij: 'Zellij', shpool: 'shpool', abduco: 'abduco', a4: 'a4' };
 export const stripAnsi = (text: string) => text.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
 
 export function parseTmuxSessions(text: string): SessionInfo[] {
-  return text.trim().split('\n').flatMap(line => {
+  return text.trim().split(/\r?\n/).flatMap(line => {
     const [id, attached, ...nameParts] = line.split('|');
     const name = nameParts.join('|');
     return /^\$\d+$/.test(id) && name ? [{ id, name, attached: Number(attached) || 0, windows: [] }] : [];
@@ -19,7 +20,7 @@ export function parseTmuxSessions(text: string): SessionInfo[] {
 }
 export function parseTmuxWindows(text: string): Map<string, WindowInfo[]> {
   const result = new Map<string, WindowInfo[]>();
-  for (const line of text.trim().split('\n')) {
+  for (const line of text.trim().split(/\r?\n/)) {
     const [session, id, index, active, panes, ...nameParts] = line.split('|');
     const name = nameParts.join('|');
     if (!/^\$\d+$/.test(session) || !/^@\d+$/.test(id) || !name) continue;
@@ -80,13 +81,29 @@ export function parseA4(text: string): SessionInfo[] {
 }
 
 export interface AdapterSettings { executable?: string; args?: string[] }
+export function parseZellijTabs(output: string): WindowInfo[] {
+  const rows: unknown = JSON.parse(output);
+  if (!Array.isArray(rows)) throw new Error(t('readWindowsFailed'));
+  return rows.filter(row => Number.isSafeInteger(row.tab_id) && Number.isSafeInteger(row.position) && typeof row.name === 'string')
+    .map(row => ({ id: String(row.tab_id), index: row.position, name: row.name, active: !!row.active,
+      panes: (Number(row.selectable_tiled_panes_count) || 0) + (Number(row.selectable_floating_panes_count) || 0) }));
+}
 export class Adapter {
   private executable?: string;
   private version?: string;
   private probed = false;
+  private probeError?: string;
+  private readonly execute: Runner;
+  private get tmuxCompatible() { return this.id === 'tmux' || this.id === 'psmux'; }
   readonly capabilities: ManagerInfo['capabilities'];
-  constructor(readonly id: ManagerId, private settings: AdapterSettings = {}, private execute: Runner = run) {
-    this.capabilities = { rename: id === 'tmux', kill: ['tmux', 'zmx', 'screen', 'zellij', 'shpool'].includes(id), windows: id === 'tmux', detachAll: true };
+  constructor(readonly id: ManagerId, private settings: AdapterSettings = {}, execute: Runner = run, private platform = process.platform) {
+    // Windows Zellij pairs separate command/reply pipes. Keep our CLI clients
+    // ordered when a refresh overlaps details, tab actions or file drops.
+    let pending: Promise<unknown> = Promise.resolve();
+    this.execute = id === 'zellij' && platform === 'win32' ? command => {
+      const task = pending.then(() => execute(command)); pending = task.catch(() => {}); return task;
+    } : execute;
+    this.capabilities = { rename: this.tmuxCompatible, kill: ['tmux', 'psmux', 'zmx', 'screen', 'zellij', 'shpool'].includes(id), windows: this.tmuxCompatible, detachAll: id !== 'zellij' || platform !== 'win32' };
   }
   configure(settings: AdapterSettings) { this.settings = settings; this.probed = false; }
   command(args: string[]): Command {
@@ -105,15 +122,31 @@ export class Adapter {
   async probe(force = false): Promise<boolean> {
     if (this.probed && !force) return !!this.executable;
     this.probed = true;
+    this.executable = undefined; this.version = undefined; this.probeError = undefined;
+    if (this.platform === 'win32' && !['psmux', 'zellij'].includes(this.id) || this.platform !== 'win32' && this.id === 'psmux') {
+      this.probeError = t('managerPlatform'); return false;
+    }
     this.executable = await findExecutable(this.id, this.settings.executable);
     if (!this.executable) return false;
     const flags = this.id === 'tmux' ? ['-V'] : ['zmx', 'shpool'].includes(this.id) ? ['version'] : ['screen', 'abduco', 'a4'].includes(this.id) ? ['-v'] : ['--version'];
     const result = await this.execute(this.command(flags));
-    this.version = stripAnsi(result.stdout || result.stderr).trim().split('\n')[0]?.slice(0, 100);
+    const output = stripAnsi(`${result.stdout}\n${result.stderr}`).trim();
+    this.version = (this.id === 'psmux' ? output.split(/\r?\n/).find(line => /^psmux /i.test(line)) : output.split(/\r?\n/)[0])?.slice(0, 100);
+    if (result.code) { this.probeError = output; this.executable = undefined; return false; }
+    if (this.id === 'psmux' && !this.version) { this.probeError = t('psmuxExecutable'); this.executable = undefined; return false; }
+    if (this.id === 'zellij') {
+      const version = /zellij (\d+)\.(\d+)\.(\d+)/i.exec(this.version || '');
+      const modern = !!version && (Number(version[1]) > 0 || Number(version[2]) > 45 || Number(version[2]) === 45 && Number(version[3]) >= 1);
+      this.capabilities.windows = modern;
+      // The Windows dual-pipe contract is verified against this release only.
+      this.capabilities.detachAll = this.platform !== 'win32' || version?.[0].toLowerCase() === 'zellij 0.45.1';
+      if (this.platform === 'win32' && !modern) { this.probeError = t('zellijWindowsVersion'); this.executable = undefined; return false; }
+    }
     return true;
   }
   async list(force = false): Promise<ManagerInfo> {
     const base: ManagerInfo = { id: this.id, name: LABELS[this.id], available: await this.probe(force), version: this.version, sessions: [], capabilities: this.capabilities };
+    base.error = this.probeError;
     if (!base.available) return base;
     try { base.sessions = await this.listSessions(); }
     catch (error) { base.error = error instanceof Error ? error.message : String(error); }
@@ -122,6 +155,7 @@ export class Adapter {
   private async listSessions(): Promise<SessionInfo[]> {
     const commands: Record<ManagerId, string[]> = {
       tmux: ['-u', 'list-sessions', '-F', '#{session_id}|#{session_attached}|#{session_name}'],
+      psmux: ['-u', 'list-sessions', '-F', '#{session_id}|#{session_attached}|#{session_name}'],
       zmx: ['list'], screen: ['-ls'], zellij: ['list-sessions', '--no-formatting'],
       shpool: ['list', '--json'], abduco: [], a4: ['-l']
     };
@@ -130,7 +164,7 @@ export class Adapter {
     if (this.id === 'screen' && parseScreen(result.stdout).length) return parseScreen(result.stdout);
     if (result.code && /no server running|no sessions|no sockets found|no active.*sessions|error connecting.*(?:No such file|Connection refused)/i.test(`${result.stderr}\n${result.stdout}`)) return [];
     const output = requireSuccess(result, t('readSessionsFailed'));
-    if (this.id === 'tmux') {
+    if (this.tmuxCompatible) {
       const sessions = parseTmuxSessions(output);
       if (!sessions.length) return [];
       const windowResult = await this.execute(this.command(['-u', 'list-windows', '-a', '-F', '#{session_id}|#{window_id}|#{window_index}|#{window_active}|#{window_panes}|#{window_name}']));
@@ -138,20 +172,46 @@ export class Adapter {
       return sessions.map(session => ({ ...session, windows: windows.get(session.id) || [] }));
     }
     const parsers = { zmx: parseZmx, screen: parseScreen, zellij: parseZellij, shpool: parseShpool, abduco: parseAbduco, a4: parseA4 };
-    return parsers[this.id](output);
+    const sessions = parsers[this.id as keyof typeof parsers](output);
+    if (this.id === 'zellij' && this.capabilities.windows) {
+      for (const session of sessions) {
+        const tabs = await this.execute(this.command(['--session', session.name, 'action', 'list-tabs', '--all', '--json']));
+        session.windows = parseZellijTabs(requireSuccess(tabs, t('readWindowsFailed')));
+      }
+    }
+    return sessions;
   }
   attach(session: SessionInfo): Command {
     const commands: Record<ManagerId, string[]> = {
       tmux: ['attach-session', '-t', session.id], zmx: ['attach', session.name],
+      psmux: ['attach-session', '-t', session.name],
       screen: ['-x', session.id], zellij: ['attach', session.name], shpool: ['attach', session.name],
       abduco: ['-a', session.name], a4: ['-a', session.name]
     };
     return this.clientCommand(commands[this.id]);
   }
-  create(name: string, shell: string, environmentShell = shell): Command {
+  async shellDialect(session: SessionInfo): Promise<'powershell' | 'cmd' | undefined> {
+    if (this.platform !== 'win32') return;
+    const result = await this.execute(this.command(this.id === 'psmux'
+      ? ['display-message', '-p', '-t', session.id, '#{pane_start_command}']
+      : ['--session', session.name, 'action', 'list-panes', '--all', '--json']));
+    if (result.code) return;
+    let command = result.stdout.trim();
+    if (this.id === 'zellij') {
+      const panes = JSON.parse(command);
+      const activeTabs = (await this.listSessions()).find(item => item.id === session.id)?.windows?.filter(item => item.active).map(item => item.id);
+      const pane = panes.find((pane: { is_plugin: boolean; is_focused: boolean; tab_id: number }) => !pane.is_plugin && pane.is_focused && activeTabs?.includes(String(pane.tab_id)));
+      command = pane?.terminal_command || pane?.pane_command || '';
+    }
+    if (/(?:^|[\\/"\s])(?:pwsh|powershell)(?:\.exe)?(?:["\s]|$)/i.test(command)) return 'powershell';
+    if (/(?:^|[\\/"\s])cmd(?:\.exe)?(?:["\s]|$)/i.test(command)) return 'cmd';
+  }
+  create(name: string, shell: string, environmentShell = shell, shellArgs?: string[]): Command {
+    const args = shellArgs || (this.platform === 'win32' ? [] : ['-l']);
     const commands: Record<ManagerId, string[]> = {
       tmux: ['new-session', '-s', name, shell, '-l'], zmx: ['attach', name, shell, '-l'], screen: ['-S', name, shell, '-l'],
-      zellij: ['--session', name, 'options', '--default-shell', shell],
+      psmux: ['new-session', '-s', name, '--', shell, ...args],
+      zellij: this.platform === 'win32' ? ['attach', '--create', name, '--', shell, ...args] : ['--session', name, 'options', '--default-shell', shell],
       shpool: ['attach', '--dir', '.', '--cmd', ['/usr/bin/env', `SHELL=${shell}`, shell, '-l'].map(shellQuote).join(' '), name],
       abduco: ['-c', name, shell, '-l'], a4: ['-a', name]
     };
@@ -165,6 +225,7 @@ export class Adapter {
     if (!this.capabilities.kill) throw new Error(t('exitToEnd'));
     const commands: Partial<Record<ManagerId, string[]>> = {
       tmux: ['kill-session', '-t', session.id], zmx: ['kill', session.name], screen: ['-S', session.id, '-X', 'quit'],
+      psmux: ['kill-session', '-t', session.id],
       zellij: ['kill-session', session.name], shpool: ['kill', session.name]
     };
     requireSuccess(await this.execute(this.command(commands[this.id]!)), t('killFailed'));
@@ -188,21 +249,38 @@ export class Adapter {
       return;
     }
     if (this.id === 'zellij') {
-      const processes = await this.sessionProcesses(session);
+      const processes = this.platform === 'win32' ? { socket: this.zellijSocket(session) } : await this.sessionProcesses(session);
       for (let attempt = 0; attempt < 10; attempt++) {
         const clients = requireSuccess(await this.execute(this.command(['--session', session.name, 'action', 'list-clients'])), t('readClientsFailed'));
         const ids = clients.split('\n').flatMap(line => { const match = /^\s*(\d+)\s/.exec(line); return match ? [Number(match[1])] : []; });
         if (!ids.length) return;
-        if (processes.socket.includes('/contract_version_1/')) await detachZellijClients(processes.socket, ids);
+        if (processes.socket.replaceAll('\\', '/').includes('/contract_version_1/')) await detachZellijClients(processes.socket, ids, this.platform);
         else await this.sessionProcesses(session, true);
         await new Promise(resolve => setTimeout(resolve, 50));
       }
       throw new Error(t('zellijStillAttached'));
     }
-    const command = this.id === 'tmux' ? this.command(['detach-client', '-s', session.id])
+    const command = this.tmuxCompatible ? this.command(['detach-client', '-s', this.id === 'psmux' ? session.name : session.id])
       : this.id === 'screen' ? this.command(['-S', session.id, '-X', 'at', '%', 'detach'])
       : { ...this.command(['detach']), env: { ZMX_SESSION: session.name } };
     requireSuccess(await this.execute(command), t('detachFailed'));
+    if (this.id === 'psmux') {
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const clients = requireSuccess(await this.execute(this.command(['display-message', '-p', '-t', session.id, '#{session_attached}'])), t('readClientsFailed')).trim();
+        if (clients === '0') return;
+        // Under load psmux can leave one client after accepting detach-client.
+        // Retry the same session-scoped request, then verify the actual count.
+        if (attempt % 3 === 2) requireSuccess(await this.execute(command), t('detachFailed'));
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error(t('detachFailed'));
+    }
+  }
+  private zellijSocket(session: SessionInfo): string {
+    if (!session.name || /[\\/\x00-\x1f]/.test(session.name) || session.name === '.' || session.name === '..') throw new Error(t('nameInvalid'));
+    const socket = path.join(process.env.ZELLIJ_SOCKET_DIR || path.join(os.tmpdir(), 'zellij'), 'contract_version_1', session.name);
+    if (!existsSync(socket)) throw new Error(t('sessionGone'));
+    return socket;
   }
   private async sessionProcesses(session: SessionInfo, detach = false): Promise<{ serverPid: number; shellPid?: number; terminalPids: number[]; clients: number[]; createdAt?: string; socket: string }> {
     const python = await findExecutable('python3');
@@ -212,13 +290,16 @@ export class Adapter {
     return JSON.parse(output);
   }
   async details(session: SessionInfo, window?: WindowInfo): Promise<SessionDetails> {
-    if (this.id === 'tmux') {
+    if (this.tmuxCompatible) {
       const target = window ? `${session.id}:${window.id}` : session.id;
       const [info, panes] = await Promise.all([
         this.execute(this.command(['-u', 'display-message', '-p', '-t', target, tmuxSessionFormat])),
         this.execute(this.command(['-u', 'list-panes', ...(window ? [] : ['-s']), '-t', target, '-F', tmuxPaneFormat]))
       ]);
-      return tmuxDetails(requireSuccess(info, t('readDetailsFailed')), requireSuccess(panes, t('readPanesFailed')), window);
+      const details = tmuxDetails(requireSuccess(info, t('readDetailsFailed')), requireSuccess(panes, t('readPanesFailed')), window);
+      details.sections[0].fields.find(field => field.label === 'manager')!.value = LABELS[this.id];
+      if (this.platform === 'win32') details.note = t('windowsCwdNote');
+      return details;
     }
     if (this.id !== 'zmx') {
       const current = (await this.listSessions()).find(item => item.id === session.id);
@@ -257,15 +338,18 @@ export class Adapter {
       created = timestamp(String(Number(record.started_at_unix_ms) / 1000));
       fields.find(field => field.label === 'clientCount')!.value = String(record.status).toLowerCase() === 'attached' ? 1 : 0;
     } else if (this.id === 'zellij') {
-      const processes = await this.sessionProcesses(session);
-      pid = processes.serverPid; created = processes.createdAt;
-      fields.push({ label: 'socket', value: processes.socket });
-      for (const terminal of processes.terminalPids) sections.push({ title: t('terminalProcess', { pid: terminal }), fields: [{ label: 'processPid', value: terminal }, ...await processDetails(terminal, this.execute, true)] });
+      if (this.platform === 'win32') fields.push({ label: 'socket', value: this.zellijSocket(session) });
+      else {
+        const processes = await this.sessionProcesses(session);
+        pid = processes.serverPid; created = processes.createdAt;
+        fields.push({ label: 'socket', value: processes.socket });
+        for (const terminal of processes.terminalPids) sections.push({ title: t('terminalProcess', { pid: terminal }), fields: [{ label: 'processPid', value: terminal }, ...await processDetails(terminal, this.execute, true)] });
+      }
       const result = await this.execute(this.command(['--session', session.name, 'action', 'list-panes', '--all', '--json']));
       if (!result.code) {
         const panes: unknown = JSON.parse(result.stdout);
         if (Array.isArray(panes)) for (const pane of panes) {
-          if (pane.is_plugin) continue;
+          if (pane.is_plugin || window && String(pane.tab_id) !== window.id) continue;
           sections.push({ title: `${t('tabPane', { index: pane.tab_position, name: pane.tab_name, pane: pane.id })}${pane.is_focused ? ` · ${t('current')}` : ''}`, fields: [
             { label: 'title', value: pane.title }, { label: 'cwd', value: pane.pane_cwd }, { label: 'runningCommand', value: pane.pane_command || pane.terminal_command }
           ] });
@@ -288,12 +372,33 @@ export class Adapter {
       { kind: 'timestamp', label: 'created', value: created }, { label: 'runningCommand', value: extra.find(field => field.label === 'runningCommand')?.value || paneFields.find(field => field.label === 'runningCommand')?.value },
       ...(shellPid ? [{ label: 'terminalPid' as const, value: shellPid }] : []),
       ...extra.filter(field => field.label === 'foregroundPid'));
-    return { title: t('sessionDetails'), sections, note: this.id === 'zmx'
+    return { title: window ? t('windowDetails') : t('sessionDetails'), sections, note: this.platform === 'win32' ? t('windowsCwdNote') : this.id === 'zmx'
       ? t('zmxDetailsNote')
       : t('detailsNote') };
   }
   async windowAction(action: 'select' | 'new' | 'rename' | 'kill', session: SessionInfo, window?: WindowInfo, name?: string): Promise<void> {
-    if (this.id !== 'tmux') throw new Error(t('windowUnsupported'));
+    if (!this.capabilities.windows) throw new Error(t('windowUnsupported'));
+    if (action !== 'new' && !window) throw new Error(t('windowUnsupported'));
+    if (this.id === 'zellij') {
+      if (action === 'new' || action === 'select') {
+        // A freshly spawned client takes time to finish terminal negotiation.
+        // 0.45.1 can build a zero-sized tab (and later crash on attach) when
+        // new-tab runs without an initialized interactive client.
+        let ready = false;
+        for (let attempt = 0; attempt < 60; attempt++) {
+          const clients = requireSuccess(await this.execute(this.command(['--session', session.name, 'action', 'list-clients'])), t('readClientsFailed'));
+          if (clients.split(/\r?\n/).some(line => /^\s*\d+\s/.test(line))) { ready = true; break; }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        if (!ready) throw new Error(t('zellijClientNotReady'));
+      }
+      const args = action === 'new' ? ['new-tab', '--name', name!]
+        : action === 'select' ? ['go-to-tab-by-id', window!.id]
+        : action === 'rename' ? ['rename-tab-by-id', window!.id, name!]
+        : ['close-tab-by-id', window!.id];
+      requireSuccess(await this.execute(this.command(['--session', session.name, 'action', ...args])), t('windowActionFailed'));
+      return;
+    }
     const target = window ? `${session.id}:${window.id}` : session.id;
     const args = action === 'select' ? ['select-window', '-t', target]
       : action === 'new' ? ['new-window', '-d', '-t', session.id, '-n', name!]

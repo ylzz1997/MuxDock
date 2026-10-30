@@ -1,6 +1,7 @@
+import { UnixAdapter as Adapter } from './adapter-fixture';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Adapter, parseAbduco, parseA4, parseScreen, parseShpool, parseTmuxSessions, parseTmuxWindows, parseZellij, parseZmx } from '../src/adapters';
+import { parseAbduco, parseA4, parseScreen, parseShpool, parseTmuxSessions, parseTmuxWindows, parseZellij, parseZmx } from '../src/adapters';
 import { cleanEnvironment } from '../src/runner';
 import { validateName } from '../src/model';
 

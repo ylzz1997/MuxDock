@@ -117,8 +117,8 @@
   "tmuxRenameDot": "tmux 세션 이름에는 점 대신 밑줄을 사용하세요.",
   "confirmKill": "세션 “{name}”을 종료할까요? 실행 중인 프로그램도 종료됩니다.",
   "killSession": "세션 종료",
-  "newTmuxWindow": "새 tmux 윈도",
-  "renameTmuxWindow": "tmux 윈도 이름 바꾸기",
+  "newTmuxWindow": "새 윈도",
+  "renameTmuxWindow": "윈도 이름 바꾸기",
   "confirmCloseWindow": "윈도 “{name}”을 닫을까요? 실행 중인 프로그램도 종료됩니다.",
   "closeWindow": "윈도 닫기",
   "nameRequired": "세션 이름을 입력하세요.",
@@ -195,5 +195,12 @@
   "serverUnverified": "세션 서버를 확인할 수 없습니다. 연결을 끊지 않았습니다.",
   "ptyMissing": "MuxDock PTY 도우미를 찾을 수 없습니다.",
   "ptyPython": "이 환경의 터미널 호환성을 위해 Python 3가 필요합니다. 설치 후 다시 시도하세요.",
-  "socket": "소켓"
+  "socket": "소켓",
+  "managerPlatform": "이 호스트에서는 이 관리자를 지원하지 않습니다. Windows는 psmux와 Zellij를 지원합니다. Unix 관리자는 원격 Linux 호스트에서 사용하세요.",
+  "psmuxExecutable": "이 관리자는 psmux.exe를 선택하세요.",
+  "zellijWindowsVersion": "Windows 네이티브 지원에는 Zellij 0.45.1 이상이 필요합니다.",
+  "windowsCwdNote": "Windows 백엔드는 디렉터리를 변경한 후에도 시작 경로를 반환할 수 있습니다. 마지막으로 보고된 경로를 표시합니다. shell이 새 경로를 보고하지 않으면 상대 링크는 연결 당시 디렉터리를 사용합니다.",
+  "zellijClientNotReady": "Zellij 클라이언트가 아직 준비되지 않았습니다. 터미널이 표시된 후 탭을 조작하세요.",
+  "shellUnknownDrop": "현재 shell을 확인할 수 없습니다. PowerShell 또는 CMD 프롬프트에서 파일을 다시 놓으세요.",
+  "cmdDropUnsupported": "CMD는 경로의 %와 !를 확장합니다. 경로를 그대로 삽입하려면 PowerShell을 사용하세요."
 }

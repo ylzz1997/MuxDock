@@ -117,8 +117,8 @@
   "tmuxRenameDot": "Utilisez des traits de soulignement plutôt que des points dans les noms tmux.",
   "confirmKill": "Terminer la session « {name} » ? Les programmes en cours seront aussi arrêtés.",
   "killSession": "Terminer la session",
-  "newTmuxWindow": "Nouvelle fenêtre tmux",
-  "renameTmuxWindow": "Renommer la fenêtre tmux",
+  "newTmuxWindow": "Nouvelle fenêtre ",
+  "renameTmuxWindow": "Renommer la fenêtre ",
   "confirmCloseWindow": "Fermer la fenêtre « {name} » ? Les programmes en cours seront aussi arrêtés.",
   "closeWindow": "Fermer la fenêtre",
   "nameRequired": "Saisissez un nom de session.",
@@ -195,5 +195,12 @@
   "serverUnverified": "Serveur de session non vérifié. Aucun client déconnecté.",
   "ptyMissing": "Assistant PTY MuxDock introuvable.",
   "ptyPython": "Cet environnement nécessite Python 3 pour le terminal. Installez-le puis réessayez.",
-  "socket": "Socket"
+  "socket": "Socket",
+  "managerPlatform": "Ce gestionnaire n’est pas pris en charge sur cet hôte. Windows prend en charge psmux et Zellij ; utilisez un hôte Linux distant pour les gestionnaires Unix.",
+  "psmuxExecutable": "Sélectionnez psmux.exe pour ce gestionnaire.",
+  "zellijWindowsVersion": "La prise en charge native de Windows nécessite Zellij 0.45.1 ou ultérieur.",
+  "windowsCwdNote": "Les backends Windows peuvent signaler le répertoire initial après un changement de répertoire. Ces chemins sont les dernières valeurs signalées. Les liens relatifs utilisent le répertoire de connexion, sauf si le shell signale un nouveau répertoire.",
+  "zellijClientNotReady": "Le client Zellij n’est pas prêt. Attendez que le terminal s’affiche avant de modifier les onglets.",
+  "shellUnknownDrop": "Le shell actuel n’a pas pu être identifié. Réessayez de déposer le fichier à une invite PowerShell ou CMD.",
+  "cmdDropUnsupported": "CMD développe % et ! dans les chemins. Utilisez PowerShell pour insérer ce chemin sans modification."
 }

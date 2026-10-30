@@ -117,8 +117,8 @@
   "tmuxRenameDot": "tmux セッション名ではドットの代わりにアンダースコアを使用してください。",
   "confirmKill": "セッション「{name}」を終了しますか？実行中のプログラムも終了します。",
   "killSession": "セッションを終了",
-  "newTmuxWindow": "新規 tmux ウィンドウ",
-  "renameTmuxWindow": "tmux ウィンドウ名を変更",
+  "newTmuxWindow": "新規 ウィンドウ",
+  "renameTmuxWindow": "ウィンドウ名を変更",
   "confirmCloseWindow": "ウィンドウ「{name}」を閉じますか？実行中のプログラムも終了します。",
   "closeWindow": "ウィンドウを閉じる",
   "nameRequired": "セッション名を入力してください。",
@@ -195,5 +195,12 @@
   "serverUnverified": "セッションのサーバーを確認できません。接続は切断していません。",
   "ptyMissing": "MuxDock PTY ヘルパーが見つかりません。",
   "ptyPython": "この環境のターミナル互換性には Python 3 が必要です。インストールして再試行してください。",
-  "socket": "ソケット"
+  "socket": "ソケット",
+  "managerPlatform": "このホストではこのマネージャーを使用できません。Windows は psmux と Zellij に対応しています。Unix 用マネージャーにはリモート Linux ホストを使用してください。",
+  "psmuxExecutable": "このマネージャーには psmux.exe を選択してください。",
+  "zellijWindowsVersion": "Windows ネイティブ対応には Zellij 0.45.1 以降が必要です。",
+  "windowsCwdNote": "Windows バックエンドはディレクトリ変更後も起動時のパスを返す場合があります。ここには最後に報告された値を表示します。shell が新しい場所を報告しない限り、相対リンクには接続時のディレクトリを使用します。",
+  "zellijClientNotReady": "Zellij クライアントの準備ができていません。端末が表示されてからタブを操作してください。",
+  "shellUnknownDrop": "現在の shell を識別できません。PowerShell または CMD のプロンプトでファイルをもう一度ドロップしてください。",
+  "cmdDropUnsupported": "CMD はパス内の % と ! を展開します。このパスをそのまま挿入するには PowerShell を使用してください。"
 }

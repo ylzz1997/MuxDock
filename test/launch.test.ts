@@ -1,3 +1,4 @@
+import { UnixAdapter as Adapter } from './adapter-fixture';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -5,7 +6,6 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { discoverShells, launchExecutable, launchProfiles, readLaunchSettings, shellQuote, systemShell, validateLaunchCommand } from '../src/launch';
-import { Adapter } from '../src/adapters';
 import { MANAGER_IDS } from '../src/model';
 
 test('new launch settings select the account default shell and recover missing selections', async () => {
@@ -17,7 +17,7 @@ test('new launch settings select the account default shell and recover missing s
   assert.equal(profiles.launchProfiles[0].name, path.basename(shell));
   assert.match(profiles.launchProfiles[0].detail, /System default/);
   assert.equal(launchProfiles({ shell: '/missing/shell', commands: [] }, [shell], shell).selectedLaunchProfile, 'system');
-  assert.ok((await discoverShells('/bin/sh')).includes('/bin/sh'));
+  assert.ok((await discoverShells(shell)).includes(shell));
 });
 
 test('saved launch commands keep valid entries and a selected command keeps its base shell', () => {
@@ -30,7 +30,7 @@ test('saved launch commands keep valid entries and a selected command keeps its 
   assert.equal(validateLaunchCommand('FOO=bar codex --resume && echo done'), undefined);
 });
 
-test('launch wrappers execute commands with quotes once and leave a usable shell', async () => {
+test('launch wrappers execute commands with quotes once and leave a usable shell', { skip: process.platform === 'win32' }, async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'muxdock-launch-'));
   try {
     const marker = path.join(root, "a b's output");
@@ -46,7 +46,7 @@ test('launch wrappers execute commands with quotes once and leave a usable shell
 
 test('every manager applies the chosen shell when creating and preserves native attachment', async () => {
   const shell = "/tmp/a b's shell";
-  for (const id of MANAGER_IDS) {
+  for (const id of MANAGER_IDS.filter(id => id !== 'psmux')) {
     const adapter = new Adapter(id, { executable: '/bin/echo' }, async () => ({ code: 0, stdout: '', stderr: '' }));
     await adapter.probe();
     const create = adapter.create('profile-test', shell);

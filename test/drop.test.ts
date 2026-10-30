@@ -38,7 +38,7 @@ test('malformed, relative and control-character paths cannot introduce terminal 
   for (const raw of ['null', '{}', '[null,7,{}]', 'x'.repeat(1024 * 1024 + 1)]) assert.deepEqual(droppedPaths(transfer({ resourceurls: raw })), []);
 });
 
-test('shell quoting round-trips every dropped path as one argument without expansion', () => {
+test('shell quoting round-trips every dropped path as one argument without expansion', { skip: process.platform === 'win32' }, () => {
   const paths = ['/tmp/plain.ts', '/tmp/中文 路径', "/tmp/it's a file", '/tmp/$HOME;$(echo BAD)`echo BAD`"*?[abc]\\end', '/tmp/#hash&name(1)'];
   const text = droppedPathText(paths);
   assert.equal(droppedPathText(['/tmp/plain.ts']), '/tmp/plain.ts');

@@ -1,5 +1,5 @@
 {
-  "extension.description": "Manage persistent tmux, zmx, screen, Zellij, shpool, abduco and a4 sessions in one terminal dock.",
+  "extension.description": "Manage persistent tmux, psmux, zmx, screen, Zellij, shpool, abduco and a4 sessions in one terminal dock.",
   "command.open": "MuxDock: Open Terminal Dock",
   "command.refresh": "Refresh",
   "command.newSession": "New Session",

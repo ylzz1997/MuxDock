@@ -1,6 +1,6 @@
+import { UnixAdapter as Adapter } from './adapter-fixture';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Adapter } from '../src/adapters';
 import { DETAIL_SEPARATOR as separator, sessionPath, timestamp, tmuxDetails, zmxRecords } from '../src/session-details';
 import type { Command, WindowInfo } from '../src/model';
 

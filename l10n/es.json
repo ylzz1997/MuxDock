@@ -117,8 +117,8 @@
   "tmuxRenameDot": "Usa guiones bajos en lugar de puntos en nombres de sesión tmux.",
   "confirmKill": "¿Finalizar la sesión «{name}»? Sus programas también terminarán.",
   "killSession": "Finalizar sesión",
-  "newTmuxWindow": "Nueva ventana tmux",
-  "renameTmuxWindow": "Renombrar ventana tmux",
+  "newTmuxWindow": "Nueva ventana ",
+  "renameTmuxWindow": "Renombrar ventana ",
   "confirmCloseWindow": "¿Cerrar la ventana «{name}»? Sus programas también terminarán.",
   "closeWindow": "Cerrar ventana",
   "nameRequired": "Introduce un nombre de sesión.",
@@ -195,5 +195,12 @@
   "serverUnverified": "No se pudo verificar el servidor. No se desconectó ningún cliente.",
   "ptyMissing": "No se encontró el auxiliar PTY de MuxDock.",
   "ptyPython": "Este entorno necesita Python 3 para el terminal. Instálalo e inténtalo de nuevo.",
-  "socket": "Socket"
+  "socket": "Socket",
+  "managerPlatform": "Este gestor no es compatible con este host. Windows admite psmux y Zellij; use un host Linux remoto para los gestores Unix.",
+  "psmuxExecutable": "Seleccione psmux.exe para este gestor.",
+  "zellijWindowsVersion": "La compatibilidad nativa con Windows requiere Zellij 0.45.1 o posterior.",
+  "windowsCwdNote": "Los backends de Windows pueden seguir indicando el directorio inicial tras cambiar de directorio. Se muestran los últimos valores comunicados. Los enlaces relativos usan el directorio de conexión salvo que el shell comunique uno nuevo.",
+  "zellijClientNotReady": "El cliente de Zellij aún no está listo. Espere a que aparezca el terminal antes de cambiar las pestañas.",
+  "shellUnknownDrop": "No se pudo identificar el shell actual. Vuelva a soltar el archivo en un indicador de PowerShell o CMD.",
+  "cmdDropUnsupported": "CMD expande % y ! en las rutas. Use PowerShell para insertar esta ruta literalmente."
 }

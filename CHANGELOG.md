@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.14
+
+- Add native Windows support for psmux and Zellij, including bundled ConPTY binaries, executable discovery and PowerShell/CMD startup commands.
+- Add psmux as a separate manager with session rename, window navigation, details and targeted disconnect-all.
+- Add Zellij 0.45.1+ tab navigation and native Windows details. Use paired named pipes for disconnect-all on verified Windows 0.45.1; keep session rename disabled.
+- Support Windows file links and shell-specific file-drop quoting. Explain the backend's stale working-directory limitation in session details.
+
 ## 0.0.13
 
 - Keep terminal content stable when resizing the dock or session sidebar, including applications such as Codex.

@@ -17,6 +17,7 @@ export function parseTerminalLink(value: string): TerminalLink | undefined {
       authority = url.hostname;
       target = decodeURIComponent(url.pathname); fragment = url.hash;
       if (!target.startsWith('/') || url.search || /[\x00-\x1f\x7f]/.test(target)) return;
+      if (/^\/[a-z]:\//i.test(target)) target = target.slice(1);
     } catch { return; }
   }
   let line: number | undefined; let column: number | undefined;
@@ -28,8 +29,8 @@ export function parseTerminalLink(value: string): TerminalLink | undefined {
     if (fragment === undefined) target = target.slice(0, location.index);
   }
   // Never interpret executable/editor URI schemes as paths.
-  if (!target || /^[a-z][\da-z+.-]*:/i.test(target) || target.includes('://')) return;
-  if (!target.includes('/') && !/^[^/]+\.[\p{L}\p{N}_-]+$/u.test(target)) return;
+  if (!target || /^[a-z][\da-z+.-]*:/i.test(target) && !/^[a-z]:[\\/]/i.test(target) || target.includes('://')) return;
+  if (!/[\\/]/.test(target) && !/^[^/]+\.[\p{L}\p{N}_-]+$/u.test(target)) return;
   return { kind: 'file', path: target, ...(authority ? { authority } : {}), ...(line ? { line } : {}), ...(column ? { column } : {}) };
 }
 
@@ -47,7 +48,7 @@ export function findWebLinks(text: string): TerminalLinkMatch[] {
 export function findFileLinks(text: string): TerminalLinkMatch[] {
   const result: TerminalLinkMatch[] = [];
   // Consume web URLs as whole tokens so their path segments cannot become file links.
-  const tokens = /https?:\/\/[^\s<>"'`]+|file:\/\/[^\s<>"'`]+|["'][^"'\r\n]+["']|(?:~\/|\/|\.\.?\/)[^\s<>"'`()\[\]{};,]+(?:\(\d+(?:,\s*\d+)?\))?|(?:[\p{L}\p{N}_@.-]+\/)+[^\s<>"'`()\[\]{};,]+(?:\(\d+(?:,\s*\d+)?\))?|[\p{L}\p{N}_@.-]+\.[\p{L}\p{N}_-]+(?:(?::\d+){1,2}|#L?\d+(?:C\d+)?(?:-L?\d+)?)?/giu;
+  const tokens = /https?:\/\/[^\s<>"'`]+|file:\/\/[^\s<>"'`]+|["'][^"'\r\n]+["']|(?:[a-z]:[\\/]|\\\\)[^\s<>"'\x60()\[\]{};,]+(?:\(\d+(?:,\s*\d+)?\))?|(?:~\/|\/|\.\.?\/)[^\s<>"'`()\[\]{};,]+(?:\(\d+(?:,\s*\d+)?\))?|(?:[\p{L}\p{N}_@.-]+[\\/])+[^\s<>"'`()\[\]{};,]+(?:\(\d+(?:,\s*\d+)?\))?|[\p{L}\p{N}_@.-]+\.[\p{L}\p{N}_-]+(?:(?::\d+){1,2}|#L?\d+(?:C\d+)?(?:-L?\d+)?)?/giu;
   for (const match of text.matchAll(tokens)) {
     let target = match[0]; let start = match.index!;
     if (target[0] === '"' || target[0] === "'") { target = target.slice(1, -1); start++; }

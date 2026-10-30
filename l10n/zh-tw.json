@@ -117,8 +117,8 @@
   "tmuxRenameDot": "tmux 會話名請使用下划線代替點。",
   "confirmKill": "結束會話“{name}”？其中運行的程序也會結束。",
   "killSession": "結束會話",
-  "newTmuxWindow": "新建 tmux window",
-  "renameTmuxWindow": "重命名 tmux window",
+  "newTmuxWindow": "新建 window",
+  "renameTmuxWindow": "重命名 window",
   "confirmCloseWindow": "關閉 window“{name}”？其中的程序也會結束。",
   "closeWindow": "關閉 window",
   "nameRequired": "請輸入會話名稱。",
@@ -195,5 +195,12 @@
   "serverUnverified": "無法確認會話服務端身份，未斷開任何連接。",
   "ptyMissing": "找不到 MuxDock PTY 輔助程序。",
   "ptyPython": "此環境需要 Python 3 作為終端兼容後端。請安裝 Python 3 後重試。",
-  "socket": "Socket"
+  "socket": "Socket",
+  "managerPlatform": "此主機不支援此管理器。Windows 支援 psmux 和 Zellij；Unix 管理器請在遠端 Linux 主機中使用。",
+  "psmuxExecutable": "請為此管理器選擇 psmux.exe。",
+  "zellijWindowsVersion": "Windows 原生支援需要 Zellij 0.45.1 或更新版本。",
+  "windowsCwdNote": "Windows 後端切換目錄後仍可能回報啟動目錄。此處路徑是最後回報的值；除非 shell 回報新目錄，相對連結會使用連線時的目錄。",
+  "zellijClientNotReady": "Zellij 用戶端尚未就緒。請等待終端出現後再操作分頁。",
+  "shellUnknownDrop": "無法辨識目前的 shell。請在 PowerShell 或 CMD 提示字元重試拖放檔案。",
+  "cmdDropUnsupported": "CMD 會展開路徑中的 % 和 !。此路徑無法按原樣插入，請使用 PowerShell。"
 }

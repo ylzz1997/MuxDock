@@ -10,7 +10,8 @@ const options = [
   { entryPoints: ['webview/main.ts'], outfile: 'dist/webview.js', bundle: true, platform: 'browser', format: 'iife', target: 'es2022', sourcemap: true, loader: { '.otf': 'file' } }
 ];
 // Keep the native module adjacent to the extension; do not load VS Code's private dependencies.
-const nativeRoot = 'dist/node_modules/node-pty';
+const nativeRoot = path.resolve('dist/node_modules/node-pty');
+if (!nativeRoot.startsWith(path.resolve('dist') + path.sep)) throw new Error('Invalid native module output directory');
 await mkdir(path.dirname(nativeRoot), { recursive: true });
 await rm(nativeRoot, { recursive: true, force: true });
 await mkdir(nativeRoot, { recursive: true });
@@ -18,6 +19,7 @@ for (const file of ['package.json', 'LICENSE']) await cp(`node_modules/node-pty/
 await cp('node_modules/node-pty/lib', `${nativeRoot}/lib`, { recursive: true, filter: source => !/\.test\./.test(source) });
 for (const architecture of ['arm64', 'x64']) {
   await cp(`node_modules/node-pty/prebuilds/darwin-${architecture}`, `${nativeRoot}/prebuilds/darwin-${architecture}`, { recursive: true });
+  await cp(`node_modules/node-pty/prebuilds/win32-${architecture}`, `${nativeRoot}/prebuilds/win32-${architecture}`, { recursive: true, filter: source => !source.endsWith('.pdb') });
 }
 if (process.platform === 'linux' && existsSync('node_modules/node-pty/build/Release')) {
   await cp('node_modules/node-pty/build/Release', `${nativeRoot}/build/Release`, { recursive: true, filter: source => !/\/obj(?:\.target)?(?:\/|$)/.test(source) });
@@ -31,6 +33,7 @@ for (const architecture of ['arm64', 'x64']) {
   await chmod(`${nativeRoot}/prebuilds/darwin-${architecture}/spawn-helper`, 0o755);
 }
 await cp('src/pty-host.py', 'dist/pty-host.py');
+await cp('src/windows-pty-host.cjs', 'dist/windows-pty-host.cjs');
 await cp('src/session-processes.py', 'dist/session-processes.py');
 await cp('media/fonts/LICENSE-Powerline.txt', 'dist/LICENSE-Powerline.txt');
 if (process.argv.includes('--watch')) {
