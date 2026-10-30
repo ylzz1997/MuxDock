@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.15
 
 - Add Herdr 0.9.5+ session discovery, creation, attach/detach, stop, tab navigation and pane details with Agent status. New sessions honor the selected shell and run saved startup commands once.
 - Support native tmux-windows through the existing tmux manager, distinguish it from psmux's tmux.exe alias, and quote its Windows launch arguments correctly.
