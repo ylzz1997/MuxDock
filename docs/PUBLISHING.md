@@ -1,13 +1,13 @@
 # Publishing MuxDock
 
-The current release is **0.0.15**, with extension ID **muxdock.muxdock**. The same VSIX can be submitted to Visual Studio Marketplace and Open VSX.
+The current release is **0.0.16**, with extension ID **muxdock.muxdock**. The same VSIX can be submitted to Visual Studio Marketplace and Open VSX.
 
 ## GitHub Release automation
 
 The [Release packages workflow](../.github/workflows/release.yml) builds both distributions on macOS with Node.js 22. It runs the type check and unit tests, verifies the packaged manifests, native binaries and executable permissions, then creates SHA-256 checksums.
 
 1. Commit the intended release sources, including this workflow, and synchronize the version in `package.json` and `package-lock.json`.
-2. Create a tag matching that version (`v0.0.15` or `0.0.15`, for example) on the release commit.
+2. Create a tag matching that version (`v0.0.16` or `0.0.16`, for example) on the release commit.
 3. Publish a GitHub Release for that tag. Both normal releases and pre-releases trigger the workflow; saving a draft or pushing a tag alone does not.
 4. When **Release packages** finishes, the release has three attachments: `muxdock-<version>.vsix`, `muxdock-iterm2-<version>.tgz`, and `SHA256SUMS.txt`.
 
@@ -28,7 +28,7 @@ npm test
 npm run package
 ```
 
-The output is `artifacts/muxdock-0.0.15.vsix`. Packaging also runs the type check and build. The checked-in PNG icon is included automatically; rebuilding the icon is optional.
+The output is `artifacts/muxdock-0.0.16.vsix`. Packaging also runs the type check and build. The checked-in PNG icon is included automatically; rebuilding the icon is optional.
 
 To reproduce the two-package release locally, also run `npm run package:iterm2`, then `node scripts/verify-release.mjs`. The latter validates both archives and writes `artifacts/SHA256SUMS.txt`.
 
@@ -38,7 +38,7 @@ The README, changelog and Marketplace listing are in English. The extension's ex
 
 1. Sign in with your Microsoft account at the [publisher management portal](https://marketplace.visualstudio.com/manage).
 2. Create a publisher with ID **muxdock** and display name **MuxDock**, or select it if you already have publishing rights. The ID must match `package.json`.
-3. Choose **New extension → Visual Studio Code** and upload `artifacts/muxdock-0.0.15.vsix`. For an existing listing, use its update action instead of creating another extension.
+3. Choose **New extension → Visual Studio Code** and upload `artifacts/muxdock-0.0.16.vsix`. For an existing listing, use its update action instead of creating another extension.
 4. Review the imported icon, description, README and license, then submit the extension. Follow its validation status in the portal.
 
 The browser upload route uses the prepared VSIX directly. After release, verify that `muxdock.muxdock` appears in VS Code's Extensions view.
@@ -62,7 +62,7 @@ Cursor uses Open VSX through its own marketplace proxy, so submit to Open VSX se
 
    ```sh
    npm exec --yes --package=node@22 --package=ovsx@1.3.0 -- ovsx create-namespace muxdock -p "$OVSX_PAT"
-   npm exec --yes --package=node@22 --package=ovsx@1.3.0 -- ovsx publish artifacts/muxdock-0.0.15.vsix -p "$OVSX_PAT"
+   npm exec --yes --package=node@22 --package=ovsx@1.3.0 -- ovsx publish artifacts/muxdock-0.0.16.vsix -p "$OVSX_PAT"
    unset OVSX_PAT
    ```
 

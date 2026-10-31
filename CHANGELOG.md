@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.16
+
+- Add MuxDock for iTerm2: a Toolbelt sidebar that opens and reuses native terminal tabs. The separate Node.js package includes Apple Silicon and Intel bindings and requires no Python interpreter.
+- Switch between local and SSH hosts, manage remote tmux/zmx sessions, and keep working directories and startup commands separate per host. Discover host aliases automatically from SSH config and Include files, including Chinese aliases.
+- Show remote loading status in the session list, keep launch menus within narrow sidebars, explain settings, and handle short-lived SSH tabs without blocking iTerm2 automation.
+- Add GitHub Release automation for VSIX and iTerm2 packages, with version checks, archive validation, SHA-256 checksums and a manual build option.
+
 ## 0.0.15
 
 - Add Herdr 0.9.5+ session discovery, creation, attach/detach, stop, tab navigation and pane details with Agent status. New sessions honor the selected shell and run saved startup commands once.

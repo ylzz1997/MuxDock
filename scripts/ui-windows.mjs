@@ -27,7 +27,7 @@ binaries.herdr ||= path.join(process.env.LOCALAPPDATA, 'Programs/Herdr/bin/herdr
 const managers = (process.env.MUXDOCK_TEST_MANAGERS || 'psmux,zellij').split(',');
 assert.ok(managers.every(id => ['tmux', 'psmux', 'zellij', 'herdr'].includes(id)));
 const tmuxLike = id => ['tmux', 'psmux'].includes(id);
-const vsix = path.resolve(process.env.MUXDOCK_USE_VSIX || 'artifacts/muxdock-0.0.15.vsix');
+const vsix = path.resolve(process.env.MUXDOCK_USE_VSIX || 'artifacts/muxdock-0.0.16.vsix');
 const config = { psmux: path.join(evidence, 'psmux.conf'), tmux: path.join(evidence, 'tmux.conf'), zellij: path.join(evidence, 'zellij.kdl'), herdr: path.join(evidence, 'herdr.toml') };
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const until = async (fn, label, timeout = 30000) => {

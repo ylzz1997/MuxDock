@@ -17,7 +17,7 @@ From the MuxDock repository:
 ```sh
 npm install
 npm run package:iterm2
-npm install -g ./artifacts/muxdock-iterm2-0.0.15.tgz
+npm install -g ./artifacts/muxdock-iterm2-0.0.16.tgz
 muxdock-iterm2 doctor
 muxdock-iterm2 start
 ```
