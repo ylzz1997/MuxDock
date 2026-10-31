@@ -2,6 +2,21 @@
 
 The current release is **0.0.15**, with extension ID **muxdock.muxdock**. The same VSIX can be submitted to Visual Studio Marketplace and Open VSX.
 
+## GitHub Release automation
+
+The [Release packages workflow](../.github/workflows/release.yml) builds both distributions on macOS with Node.js 22. It runs the type check and unit tests, verifies the packaged manifests, native binaries and executable permissions, then creates SHA-256 checksums.
+
+1. Commit the intended release sources, including this workflow, and synchronize the version in `package.json` and `package-lock.json`.
+2. Create a tag matching that version (`v0.0.15` or `0.0.15`, for example) on the release commit.
+3. Publish a GitHub Release for that tag. Both normal releases and pre-releases trigger the workflow; saving a draft or pushing a tag alone does not.
+4. When **Release packages** finishes, the release has three attachments: `muxdock-<version>.vsix`, `muxdock-iterm2-<version>.tgz`, and `SHA256SUMS.txt`.
+
+The workflow builds the tagged commit and fails if the release tag or lockfile version disagrees with `package.json`. The iTerm2 archive includes Apple Silicon and Intel bindings and requires no Python interpreter. Install it as described in the [iTerm2 guide](ITERM2.md).
+
+For a build preview, use **Actions → Release packages → Run workflow** and select a branch or tag. Download the `muxdock-<version>` artifact from that run; it is retained for 14 days. Manual runs only build and save artifacts. To retry an automatic release upload, use **Re-run failed jobs** on its release-triggered run; rerunning all jobs rebuilds the packages and replaces attachments of the same name.
+
+Release uploads use GitHub's automatic `GITHUB_TOKEN` with `contents: write` only in the upload job. No custom secret is needed. Marketplace and Open VSX publication remain the separate steps below. The trigger follows GitHub's [`release: published` event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#release).
+
 ## Prepare the package
 
 Use Node.js 22 or later:
@@ -14,6 +29,8 @@ npm run package
 ```
 
 The output is `artifacts/muxdock-0.0.15.vsix`. Packaging also runs the type check and build. The checked-in PNG icon is included automatically; rebuilding the icon is optional.
+
+To reproduce the two-package release locally, also run `npm run package:iterm2`, then `node scripts/verify-release.mjs`. The latter validates both archives and writes `artifacts/SHA256SUMS.txt`.
 
 The README, changelog and Marketplace listing are in English. The extension's existing UI labels are unchanged. `package.json` contains the listing description, icon, banner and `muxdock` publisher ID.
 

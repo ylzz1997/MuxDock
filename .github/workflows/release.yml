@@ -1,0 +1,100 @@
+name: Release packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-packages-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build VSIX and iTerm2 packages
+    runs-on: macos-15
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Validate release version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
+          const version = pkg.version;
+          assert.match(version, /^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/);
+          assert.equal(lock.version, version, 'Lockfile version differs from package.json');
+          assert.equal(lock.packages[''].version, version, 'Lockfile root package version differs');
+          const tag = process.env.RELEASE_TAG;
+          assert.ok(!tag || tag === version || tag === `v${version}`, `Release tag ${tag} must match ${version} or v${version}`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          NODE
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - name: Package VSIX
+        run: npm run package
+      - name: Package iTerm2
+        run: npm run package:iterm2
+      - name: Verify archives and generate checksums
+        run: node scripts/verify-release.mjs
+
+      - name: Save build artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: muxdock-${{ steps.version.outputs.version }}
+          path: |
+            artifacts/muxdock-${{ steps.version.outputs.version }}.vsix
+            artifacts/muxdock-iterm2-${{ steps.version.outputs.version }}.tgz
+            artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+          overwrite: true
+          compression-level: 0
+          retention-days: 14
+
+  upload:
+    name: Upload GitHub Release assets
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: muxdock-${{ needs.build.outputs.version }}
+          path: release
+
+      - name: Verify and upload
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          sha256sum --check SHA256SUMS.txt
+          gh release upload "$RELEASE_TAG" \
+            "muxdock-${RELEASE_VERSION}.vsix" \
+            "muxdock-iterm2-${RELEASE_VERSION}.tgz" \
+            SHA256SUMS.txt --clobber
