@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { stripVTControlCharacters } from 'node:util';
 import { spawnPty } from '../src/pty';
 import { cleanEnvironment } from '../src/runner';
 
@@ -16,7 +17,8 @@ for (const driver of ['native', 'python']) {
     await new Promise(resolve => setTimeout(resolve, 150));
     processPty.write('input\r');
     const exitCode = await finished;
-    assert.equal(exitCode, 0); assert.match(output, /PTY_RESULT 中文/); assert.match(output, /111 33/);
+    const visibleOutput = stripVTControlCharacters(output);
+    assert.equal(exitCode, 0); assert.match(visibleOutput, /PTY_RESULT 中文/); assert.match(visibleOutput, /111 33/);
     if (previous === undefined) delete process.env.MUXDOCK_PTY_DRIVER; else process.env.MUXDOCK_PTY_DRIVER = previous;
   });
 }
