@@ -290,10 +290,6 @@ button:focus-visible,
   background: var(--vscode-list-dropBackground, #007fd422);
 }
 
-.terminal-area.file-drop-target .drop-hint {
-  color: var(--vscode-focusBorder, #007fd4);
-}
-
 .terminal-instance {
   width: 100%;
   height: 100%;
@@ -363,14 +359,6 @@ button:focus-visible,
 
 .host-name {
   text-align: right;
-}
-
-.drop-hint {
-  white-space: nowrap;
-  margin-left: auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .welcome {

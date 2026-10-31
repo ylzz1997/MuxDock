@@ -7,8 +7,6 @@
   "keepRunning": "斷開連接後，任務繼續運行",
   "terminalContent": "終端內容",
   "noSession": "未打開會話",
-  "dropHint": "拖動後按 Shift",
-  "dropHelp": "先從文件欄開始拖動，再按住 Shift 移入終端；出現高亮後鬆手，可多選文件或文件夾",
   "resizeTree": "調整會話樹寬度",
   "managersAndSessions": "管理器和會話",
   "sessions": "會話",

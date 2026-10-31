@@ -7,8 +7,6 @@
   "keepRunning": "断开连接后，任务继续运行",
   "terminalContent": "终端内容",
   "noSession": "未打开会话",
-  "dropHint": "拖动后按 Shift",
-  "dropHelp": "先从文件栏开始拖动，再按住 Shift 移入终端；出现高亮后松手，可多选文件或文件夹",
   "resizeTree": "调整会话树宽度",
   "managersAndSessions": "管理器和会话",
   "sessions": "会话",

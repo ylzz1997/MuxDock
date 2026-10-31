@@ -7,8 +7,6 @@
   "keepRunning": "Les tâches continuent après la déconnexion",
   "terminalContent": "Contenu du terminal",
   "noSession": "Aucune session ouverte",
-  "dropHint": "Maintenir Shift après avoir glissé",
-  "dropHelp": "Glissez des fichiers ou dossiers, puis maintenez Shift au-dessus du terminal. Relâchez quand il est surligné.",
   "resizeTree": "Redimensionner l’arbre des sessions",
   "managersAndSessions": "Gestionnaires et sessions",
   "sessions": "Sessions",

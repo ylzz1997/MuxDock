@@ -7,8 +7,6 @@
   "keepRunning": "연결을 끊어도 작업은 계속 실행됩니다",
   "terminalContent": "터미널 내용",
   "noSession": "열린 세션 없음",
-  "dropHint": "드래그한 후 Shift 누르기",
-  "dropHelp": "파일이나 폴더를 드래그한 다음 Shift를 누른 채 터미널로 이동하세요. 강조 표시되면 놓으세요.",
   "resizeTree": "세션 트리 너비 조절",
   "managersAndSessions": "관리자 및 세션",
   "sessions": "세션",

@@ -7,8 +7,6 @@
   "keepRunning": "As tarefas continuam após desconectar",
   "terminalContent": "Conteúdo do terminal",
   "noSession": "Nenhuma sessão aberta",
-  "dropHint": "Segure Shift após arrastar",
-  "dropHelp": "Arraste arquivos ou pastas e segure Shift sobre o terminal. Solte quando ele for destacado.",
   "resizeTree": "Redimensionar árvore de sessões",
   "managersAndSessions": "Gerenciadores e sessões",
   "sessions": "Sessões",
