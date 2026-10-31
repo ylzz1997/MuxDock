@@ -52,7 +52,14 @@ jobs:
       - run: npm run check
       - run: npm test
       - name: Package VSIX
-        run: npm run package
+        env:
+          PRE_RELEASE: ${{ github.event.release.prerelease || false }}
+        run: |
+          if [[ "$PRE_RELEASE" == "true" ]]; then
+            npm run package -- --pre-release
+          else
+            npm run package
+          fi
       - name: Package iTerm2
         run: npm run package:iterm2
       - name: Verify archives and generate checksums
@@ -98,3 +105,140 @@ jobs:
             "muxdock-${RELEASE_VERSION}.vsix" \
             "muxdock-iterm2-${RELEASE_VERSION}.tgz" \
             SHA256SUMS.txt --clobber
+
+  publish-marketplace:
+    name: Publish to Visual Studio Marketplace
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: muxdock-${{ needs.build.outputs.version }}
+          path: release
+
+      - name: Verify downloaded packages
+        working-directory: release
+        run: sha256sum --check SHA256SUMS.txt
+
+      - name: Install publishing CLI
+        run: npm install --global @vscode/vsce@4.1.0
+
+      - name: Publish prepared VSIX
+        working-directory: release
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          vsce publish --packagePath "muxdock-${RELEASE_VERSION}.vsix" --oidc --skip-duplicate
+
+  publish-openvsx:
+    name: Publish to Open VSX
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: muxdock-${{ needs.build.outputs.version }}
+          path: release
+
+      - name: Verify downloaded packages
+        working-directory: release
+        run: sha256sum --check SHA256SUMS.txt
+
+      - name: Install publishing CLI
+        run: npm install --global ovsx@1.3.0
+
+      - name: Publish prepared VSIX
+        working-directory: release
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          ovsx publish "muxdock-${RELEASE_VERSION}.vsix" --trusted-publishing --skip-duplicate
+
+  publish-npm:
+    name: Publish iTerm2 package to npm
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # npm Trusted Publishing and provenance
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: muxdock-${{ needs.build.outputs.version }}
+          path: release
+
+      - name: Verify downloaded packages
+        working-directory: release
+        run: sha256sum --check SHA256SUMS.txt
+
+      - name: Check whether this npm version already exists
+        id: npm-version
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { appendFileSync } from 'node:fs';
+          const name = 'muxdock-iterm2';
+          const version = process.env.RELEASE_VERSION;
+          const response = await fetch(`https://registry.npmjs.org/${name}/${encodeURIComponent(version)}`, {
+            signal: AbortSignal.timeout(30000),
+          });
+          if (response.status === 404) {
+            appendFileSync(process.env.GITHUB_OUTPUT, 'exists=false\n');
+          } else {
+            assert.ok(response.ok, `npm version lookup failed: HTTP ${response.status}`);
+            const published = await response.json();
+            assert.equal(published.name, name);
+            assert.equal(published.version, version);
+            console.log(`${name}@${version} is already published; skipping.`);
+            appendFileSync(process.env.GITHUB_OUTPUT, 'exists=true\n');
+          }
+          NODE
+
+      - name: Install npm with Trusted Publishing support
+        if: steps.npm-version.outputs.exists == 'false'
+        run: npm install --global npm@11
+
+      - name: Publish prepared iTerm2 archive
+        if: steps.npm-version.outputs.exists == 'false'
+        working-directory: release
+        env:
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          PRE_RELEASE: ${{ github.event.release.prerelease || false }}
+        run: |
+          dist_tag=latest
+          if [[ "$PRE_RELEASE" == "true" || "$RELEASE_VERSION" == *-* ]]; then
+            dist_tag=next
+          fi
+          npm publish "./muxdock-iterm2-${RELEASE_VERSION}.tgz" \
+            --access public --tag "$dist_tag" --provenance --ignore-scripts \
+            --registry=https://registry.npmjs.org
