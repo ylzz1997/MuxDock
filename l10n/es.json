@@ -7,8 +7,6 @@
   "keepRunning": "Las tareas continúan tras desconectarse",
   "terminalContent": "Contenido del terminal",
   "noSession": "Ninguna sesión abierta",
-  "dropHint": "Mantén Mayús al arrastrar",
-  "dropHelp": "Arrastra archivos o carpetas y mantén Mayús sobre el terminal. Suelta cuando se resalte.",
   "resizeTree": "Ajustar árbol de sesiones",
   "managersAndSessions": "Gestores y sesiones",
   "sessions": "Sesiones",

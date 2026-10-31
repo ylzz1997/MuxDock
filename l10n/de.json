@@ -7,8 +7,6 @@
   "keepRunning": "Aufgaben laufen nach dem Trennen weiter",
   "terminalContent": "Terminalinhalt",
   "noSession": "Keine Sitzung geöffnet",
-  "dropHint": "Nach Ziehbeginn Shift halten",
-  "dropHelp": "Dateien oder Ordner ziehen, dann Shift über dem Terminal halten. Bei Hervorhebung loslassen.",
   "resizeTree": "Sitzungsbaum skalieren",
   "managersAndSessions": "Manager und Sitzungen",
   "sessions": "Sitzungen",

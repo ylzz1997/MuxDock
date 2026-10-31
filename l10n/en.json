@@ -7,8 +7,6 @@
   "keepRunning": "Tasks keep running after you disconnect",
   "terminalContent": "Terminal content",
   "noSession": "No session open",
-  "dropHint": "Hold Shift after dragging",
-  "dropHelp": "Start dragging files or folders, then hold Shift over the terminal. Release when highlighted.",
   "resizeTree": "Resize session tree",
   "managersAndSessions": "Managers and sessions",
   "sessions": "Sessions",

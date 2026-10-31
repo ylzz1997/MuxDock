@@ -7,8 +7,6 @@
   "keepRunning": "切断後もタスクは実行され続けます",
   "terminalContent": "ターミナルの内容",
   "noSession": "セッションなし",
-  "dropHint": "ドラッグ開始後に Shift",
-  "dropHelp": "ファイルやフォルダーをドラッグし、Shift を押してターミナルに移動します。強調表示されたら離します。",
   "resizeTree": "セッションツリーの幅を変更",
   "managersAndSessions": "マネージャーとセッション",
   "sessions": "セッション",

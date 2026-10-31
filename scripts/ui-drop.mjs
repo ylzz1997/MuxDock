@@ -85,7 +85,7 @@ finally:
     await verify('A second drop of the same Explorer file inserts its path again', () => drag(files[0]), [files[0]]);
     await verify('A third drop of the same Explorer file inserts its path again', () => drag(files[0]), [files[0]]);
     await verify('Pressing Shift after reaching MuxDock inserts the path', () => drag(files[0], false, target, { shiftInside: true }), [files[0]]);
-    await verify('Dropping on the Shift hint inserts the path', () => drag(files[0], false, frame.locator('.drop-hint'), { shiftInside: true }), [files[0]]);
+    await verify('Dropping on the terminal footer inserts the path', () => drag(files[0], false, frame.locator('.terminal-footer'), { shiftInside: true }), [files[0]]);
     await verify('Dropping on the terminal top padding inserts the path', () => drag(files[0], false, frame.locator('.terminal-content'), { position: { x: .5, y: .01 } }), [files[0]]);
     await verify('Dropping on the terminal header inserts the path', () => drag(files[0], false, frame.locator('.terminal-header'), { shiftInside: true }), [files[0]]);
     await verify('Explorer Unicode/space/quote/dollar file drag preserves one shell argument', () => drag(files[1]), [files[1]]);

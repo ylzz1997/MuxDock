@@ -36,7 +36,7 @@ export async function nativeExplorerDrop({ page, frame, source, target, delay, s
     const point = await target.evaluate((element, position) => { const rect = element.getBoundingClientRect(); return { x: rect.x + rect.width * position.x, y: rect.y + rect.height * position.y }; }, position);
     for (const type of ['dragEnter', 'dragOver']) await child.send('Input.dispatchDragEvent', { type, ...point, modifiers: 8, data: intercepted });
     assert.equal(await frame.locator('.terminal-area').evaluate(element => element.classList.contains('file-drop-target')), true, 'The complete terminal area indicates that the drag is accepted');
-    if (await target.evaluate(element => element.classList.contains('drop-hint'))) await frame.locator('.terminal-area').screenshot({ path: `.test-results/terminal-drop-ready-${process.pid}.png` });
+    if (await target.evaluate(element => element.classList.contains('terminal-footer'))) await frame.locator('.terminal-area').screenshot({ path: `.test-results/terminal-drop-ready-${process.pid}.png` });
     await child.send('Input.dispatchDragEvent', { type: 'drop', ...point, modifiers: 8, data: intercepted });
   } finally {
     // CDP cannot finish an intercepted main-target drag from a child target.
