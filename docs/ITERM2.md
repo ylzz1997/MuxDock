@@ -12,17 +12,15 @@ The service uses TypeScript/Node.js and connects directly to iTerm2's local API.
 
 ## Install and run
 
-From the MuxDock repository:
+Install the published package from [npm](https://www.npmjs.com/package/muxdock-iterm2):
 
 ```sh
-npm install
-npm run package:iterm2
-npm install -g ./artifacts/muxdock-iterm2-0.0.16.tgz
+npm install -g muxdock-iterm2
 muxdock-iterm2 doctor
 muxdock-iterm2 start
 ```
 
-Alternatively, run the unpacked build with `node artifacts/iterm2/dist/cli.cjs start`. Keep the service running while using the sidebar. On first connection, allow macOS Automation access to iTerm2 if prompted.
+Keep the service running while using the sidebar. On first connection, allow macOS Automation access to iTerm2 if prompted.
 
 In iTerm2, select **View → Toolbelt → Show Toolbelt**, then enable **View → Toolbelt → MuxDock**. In Simplified Chinese, these are **显示 → 工具箱 → 显示工具箱** and **显示 → 工具箱 → MuxDock**. If iTerm2 was already showing the sidebar, MuxDock appears there directly.
 
