@@ -27,6 +27,10 @@ export interface ConnectionInfo { key: string; manager: ManagerId; sessionId: st
 export interface Appearance { fontSize: number; fontFamily: string; scrollback: number; minimumContrastRatio: number }
 export interface LaunchProfile { id: string; name: string; detail: string; kind: 'shell' | 'command' }
 export interface Snapshot {
+  hosts?: { id: string; label: string; source?: string; removable?: boolean }[];
+  selectedHost?: string;
+  hostError?: string;
+  hostLoading?: boolean;
   locale: import('./i18n').Locale;
   managers: ManagerInfo[];
   connections: ConnectionInfo[];

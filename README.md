@@ -6,6 +6,8 @@ MuxDock brings **tmux, psmux, zmx, screen, Zellij, Herdr, shpool, abduco and a4*
 
 Your sessions belong to the underlying manager. Close a tab, detach or reload the editor, then reconnect to continue working.
 
+**iTerm2:** [MuxDock for iTerm2](docs/ITERM2.md) adds the same session sidebar to iTerm2's Toolbelt and opens connections in native terminal tabs. It runs on Node.js without Python.
+
 ## Features
 
 - **Nine managers across Windows, macOS and Linux.** Discover installed tools and browse their existing sessions without replacing their configuration.

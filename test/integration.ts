@@ -9,6 +9,7 @@ import { Connections } from '../src/connections';
 import { MANAGER_IDS, type ManagerId, type Command, type SessionInfo } from '../src/model';
 import { run, cleanEnvironment } from '../src/runner';
 import { launchExecutable, shellQuote } from '../src/launch';
+import { inspectProcesses } from '../src/iterm2/processes';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 async function until<T>(fn: () => Promise<T | undefined | false>, description: string, timeout = 20000): Promise<T> {
@@ -31,8 +32,13 @@ await mkdir('.test-results', { recursive: true });
 let failed = false;
 for (const id of MANAGER_IDS.filter(id => !process.env.MUXDOCK_TEST_MANAGERS || process.env.MUXDOCK_TEST_MANAGERS.split(',').includes(id))) {
   const args = id === 'tmux' ? ['-S', `${root}/tmux.sock`, '-f', '/dev/null'] : id === 'shpool' ? ['-s', `${root}/shpool.sock`, '-D'] : id === 'a4' && paths.a4?.includes('.test-tools') ? ['-i', path.resolve('.test-tools/a4-main/etc/a4.ini')] : [];
-  const execute = (command: Command) => run({ ...command, env: { ...env, ...command.env } });
-  const adapter = new Adapter(id, { executable: paths[id], args }, execute);
+  const execute = async (command: Command) => {
+    const result = await run({ ...command, env: { ...env, ...command.env } });
+    if (process.env.MUXDOCK_TEST_TRACE === '1') console.log(JSON.stringify({ id, args: command.args, ...result }));
+    return result;
+  };
+  const adapter = new Adapter(id, { executable: paths[id], args }, execute, process.platform,
+    process.env.MUXDOCK_PROCESS_DRIVER === 'node' ? settings => inspectProcesses({ ...settings, environment: env, cwd: workDir }) : undefined);
   const runtime = new Connections();
   const external = new Connections();
   const untouched = new Connections();

@@ -13,17 +13,17 @@ import { TerminalLinks } from './links';
 import { attachTerminalDrop } from './drop';
 import { TerminalSearch, SEARCH_MATCH_LIMIT, type SearchFlags } from './search';
 import type { BatchAction, SessionTarget } from '../src/batch-sessions';
+import { createHost, nativeTerminal } from './host';
 
 setLocale(document.documentElement.lang);
 
-declare function acquireVsCodeApi(): { postMessage(message: unknown): void; getState(): Saved | undefined; setState(state: Saved): void };
 interface Saved { width: number; expanded: string[]; filter?: string; filterOpen?: boolean; sidebarCollapsed?: boolean; searchOptions?: SearchFlags }
-const vscode = acquireVsCodeApi();
-const send = (message: unknown) => vscode.postMessage(message);
+const vscode = createHost<Saved>();
+const send = (message: unknown) => vscode.postMessage(nativeTerminal && message && typeof message === 'object' ? { hostId: snapshot.selectedHost || 'local', ...message } : message);
 const saved = vscode.getState();
 const expanded = new Set(saved?.expanded || MANAGER_IDS);
 let width = saved?.width || 258;
-let sidebarCollapsed = saved?.sidebarCollapsed === true;
+let sidebarCollapsed = !nativeTerminal && saved?.sidebarCollapsed === true;
 let snapshot: Snapshot = { locale: getLocale(), managers: [], connections: [], host: '', showUnavailable: false, visibleManagers: [...MANAGER_IDS], showTabs: true, maxTabs: 8, appearance: { fontSize: 12, fontFamily: 'Menlo, Monaco, monospace', scrollback: 10000, minimumContrastRatio: 4.5 }, launchProfiles: [], selectedLaunchProfile: 'system' };
 let displayedKey: string | undefined;
 let lastActiveTarget: string | undefined;
@@ -87,6 +87,36 @@ const searchWidget = new TerminalSearch(get('.terminal-content'), saved?.searchO
   if (current()) current()!.terminal.focus(); else get('.terminal-actions .icon-search').closest<HTMLButtonElement>('button')!.focus();
 });
 const sidebar = get('.sidebar');
+const hostBar = document.createElement('div'); hostBar.className = 'host-bar';
+const hostButton = button('switchHost', 'terminal', () => {
+  if (menu?.classList.contains('host-menu')) { closeMenu(); return; }
+  showHostMenu(); send({ type: 'refreshHosts' });
+}, 'host-button');
+function showHostMenu() {
+  const rect = hostButton.getBoundingClientRect();
+  showMenu(rect.left, rect.bottom + 4, [
+    ...(snapshot.hosts || []).map(host => ({ id: host.id, label: host.label, tooltip: host.source ? `${host.label}\n${host.source}` : host.label, checked: host.id === snapshot.selectedHost, action: () => send({ type: 'selectHost', id: host.id }),
+      ...(host.removable ?? host.id !== 'local' ? { removeLabel: t('removeSshHost'), remove: () => send({ type: 'removeSshHost', id: host.id }) } : {}) })),
+    { label: t('addSshHost'), image: 'plus', separator: true, action: () => send({ type: 'addSshHost' }) },
+    ...(snapshot.selectedHost && snapshot.selectedHost !== 'local' ? [{ label: t('sshLogin'), image: 'terminal', action: () => send({ type: 'sshLogin' }) }] : [])
+  ]);
+  menu!.classList.add('host-menu'); hostButton.setAttribute('aria-expanded', 'true');
+}
+hostButton.setAttribute('aria-haspopup', 'menu');
+const hostError = document.createElement('div'); hostError.className = 'host-error'; hostError.hidden = true;
+const hostErrorText = text('p', '');
+const hostLogin = button('sshLogin', 'terminal', () => send({ type: 'sshLogin' }), 'host-login');
+hostError.append(hostErrorText, hostLogin); hostBar.append(hostButton, hostError);
+if (nativeTerminal) get('.sidebar-header').after(hostBar);
+function updateHost() {
+  if (!nativeTerminal) return;
+  const label = snapshot.hosts?.find(host => host.id === snapshot.selectedHost)?.label || t('localHost');
+  hostButton.replaceChildren(icon('terminal'), text('span', label, 'host-name-label'), icon('chevron'));
+  hostButton.title = `${t('switchHost')} · ${label}`;
+  hostButton.setAttribute('aria-label', `${t('switchHost')} · ${label}`);
+  hostError.hidden = !snapshot.hostError; hostErrorText.textContent = snapshot.hostError || '';
+  hostLogin.replaceChildren(text('span', t('sshLogin')));
+}
 const splitter = get('.splitter');
 const tabList = get('.terminal-tabs');
 const batchToolbar = get('.batch-toolbar');
@@ -124,7 +154,7 @@ get('.sidebar-actions').append(
   button('moreActions', 'more', () => showMenu(get('.sidebar-actions').getBoundingClientRect().right, 32, [
     { label: batchMode ? t('exitBatch') : t('batchActions'), disabled: batchPending, action: () => setBatchMode(!batchMode) },
     { label: snapshot.showUnavailable ? t('hideUnavailable') : t('showUnavailable'), action: () => send({ type: 'showUnavailable', value: !snapshot.showUnavailable }) },
-    { label: t('fontSettings'), action: () => send({ type: 'settings', fontsOnly: true }) },
+    ...(!nativeTerminal ? [{ label: t('fontSettings'), action: () => send({ type: 'settings', fontsOnly: true }) }] : []),
     { label: t('language'), action: () => send({ type: 'language' }) },
     { label: t('settings'), action: () => send({ type: 'settings' }) }
   ]))
@@ -147,8 +177,7 @@ const launchButton = button('chooseLaunch', 'terminal', () => {
     { label: t('addCommand'), image: 'plus', separator: true, action: () => send({ type: 'addLaunchCommand' }) }
   ]);
   menu!.classList.add('launch-menu'); menu!.setAttribute('aria-label', t('launchProfile'));
-  menu!.style.maxHeight = `${Math.max(20, window.innerHeight - rect.bottom - 4)}px`;
-  positionMenu(rect.left, rect.bottom);
+  positionLaunchMenu();
   const selected = menu!.querySelector<HTMLElement>('[aria-checked="true"]');
   if (selected) menu!.scrollTop = Math.max(0, selected.offsetTop - menu!.clientHeight / 2 + selected.offsetHeight / 2);
   launchButton.setAttribute('aria-expanded', 'true');
@@ -160,6 +189,7 @@ get('.terminal-actions').append(
   launchButton,
   sidebarToggle
 );
+if (nativeTerminal) { document.body.classList.add('iterm2'); get('.sidebar-footer').before(launchButton); }
 function persist() { vscode.setState({ width, expanded: [...expanded], filter: filter.value, filterOpen, sidebarCollapsed, searchOptions: searchWidget.options }); }
 function updateSidebarVisibility() {
   sidebar.hidden = sidebarCollapsed; splitter.hidden = sidebarCollapsed;
@@ -309,6 +339,13 @@ function ensureTerminal(info: ConnectionInfo) {
   return entry;
 }
 function updateTerminal() {
+  if (nativeTerminal) {
+    const profile = snapshot.launchProfiles.find(profile => profile.id === snapshot.selectedLaunchProfile);
+    launchButton.replaceChildren(icon('terminal'), text('span', profile?.name || 'shell', 'launch-name'));
+    launchButton.title = t('launchDefault', { name: profile?.name || 'shell', detail: profile?.detail || '' });
+    launchButton.dataset.profile = snapshot.selectedLaunchProfile;
+    return;
+  }
   for (const info of snapshot.connections) ensureTerminal(info);
   for (const [key, entry] of terminals) if (!snapshot.connections.some(info => info.key === key)) { searchWidget.unregister(key); entry.links.dispose(); entry.terminal.dispose(); entry.element.remove(); terminals.delete(key); }
   displayedKey = snapshot.activeKey;
@@ -440,20 +477,38 @@ function renderDetails(details: SessionDetails) {
   detailsBody.replaceChildren(fragment); detailsText = copied.join('\n'); detailsCopy.disabled = false;
 }
 
-type MenuItem = { label: string; action: () => void; danger?: boolean; disabled?: boolean; checked?: boolean; detail?: string; id?: string; image?: string; separator?: boolean; remove?: () => void };
+type MenuItem = { label: string; action: () => void; danger?: boolean; disabled?: boolean; checked?: boolean; detail?: string; id?: string; image?: string; separator?: boolean; remove?: () => void; removeLabel?: string; tooltip?: string };
 let menu: HTMLElement | undefined;
-function closeMenu() { menu?.remove(); menu = undefined; launchButton.setAttribute('aria-expanded', 'false'); }
+function closeMenu() { menu?.remove(); menu = undefined; launchButton.setAttribute('aria-expanded', 'false'); hostButton.setAttribute('aria-expanded', 'false'); }
 function positionMenu(x: number, y: number) {
   if (!menu) return;
   menu.style.left = `${Math.max(4, Math.min(x, window.innerWidth - menu.offsetWidth - 4))}px`;
   menu.style.top = `${Math.max(4, Math.min(y, window.innerHeight - menu.offsetHeight - 4))}px`;
 }
+function positionLaunchMenu() {
+  if (!menu?.classList.contains('launch-menu')) return;
+  const rect = launchButton.getBoundingClientRect();
+  // The editor launcher is in the header; the native sidebar launcher is at
+  // the bottom. Reserve space on the side that can actually fit the list.
+  const above = rect.top - 8, below = window.innerHeight - rect.bottom - 8;
+  const openAbove = above > below;
+  menu.style.maxHeight = `${Math.max(20, openAbove ? above : below)}px`;
+  positionMenu(rect.left, openAbove ? rect.top - menu.offsetHeight - 4 : rect.bottom + 4);
+}
+window.addEventListener('resize', () => {
+  positionLaunchMenu();
+  if (menu?.classList.contains('host-menu')) { const rect = hostButton.getBoundingClientRect(); positionMenu(rect.left, rect.bottom + 4); }
+  if (menu?.classList.contains('launch-menu') && menu.contains(document.activeElement)) {
+    (document.activeElement as HTMLElement).scrollIntoView({ block: 'nearest' });
+  }
+});
 function showMenu(x: number, y: number, items: MenuItem[]) {
   closeMenu(); menu = document.createElement('div'); menu.className = 'context-menu'; menu.setAttribute('role', 'menu');
   for (const item of items) {
     if (item.separator) { const separator = text('div', '', 'menu-separator'); separator.setAttribute('role', 'separator'); menu.append(separator); }
     const wrapper = text('div', '', 'menu-row');
     const row = document.createElement('button'); row.className = 'menu-item'; row.setAttribute('role', item.checked === undefined ? 'menuitem' : 'menuitemradio'); row.setAttribute('aria-label', item.label);
+    row.title = item.tooltip || item.label;
     if (item.checked !== undefined) { row.setAttribute('aria-checked', String(item.checked)); const check = icon('check'); check.classList.add('menu-check'); row.append(check); }
     else if (item.image) row.append(icon(item.image));
     if (item.id) row.dataset.profile = item.id;
@@ -461,7 +516,7 @@ function showMenu(x: number, y: number, items: MenuItem[]) {
     row.disabled = !!item.disabled; row.classList.toggle('danger', !!item.danger);
     row.addEventListener('click', () => { closeMenu(); item.action(); }); wrapper.append(row);
     if (item.remove) {
-      wrapper.append(button(t('removeCommand', { name: item.label }), 'close', () => { closeMenu(); item.remove!(); }, 'menu-remove icon-button'));
+      wrapper.append(button(item.removeLabel || t('removeCommand', { name: item.label }), 'close', () => { closeMenu(); item.remove!(); }, 'menu-remove icon-button'));
       row.addEventListener('keydown', event => { if (event.key === 'Delete') { event.preventDefault(); event.stopPropagation(); closeMenu(); item.remove!(); } });
     }
     menu.append(wrapper);
@@ -472,9 +527,9 @@ function showMenu(x: number, y: number, items: MenuItem[]) {
   selected?.focus({ preventScroll: true });
   if (selected) menu.scrollTop = Math.max(0, selected.offsetTop - menu.clientHeight / 2 + selected.offsetHeight / 2);
 }
-document.addEventListener('pointerdown', event => { if (menu && !menu.contains(event.target as Node) && !(menu.classList.contains('launch-menu') && launchButton.contains(event.target as Node))) closeMenu(); });
+document.addEventListener('pointerdown', event => { if (menu && !menu.contains(event.target as Node) && !(menu.classList.contains('launch-menu') && launchButton.contains(event.target as Node)) && !(menu.classList.contains('host-menu') && hostButton.contains(event.target as Node))) closeMenu(); });
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && menu) { const launchMenu = menu.classList.contains('launch-menu'); closeMenu(); if (launchMenu) launchButton.focus({ preventScroll: true }); event.preventDefault(); }
+  if (event.key === 'Escape' && menu) { const trigger = menu.classList.contains('launch-menu') ? launchButton : menu.classList.contains('host-menu') ? hostButton : undefined; closeMenu(); trigger?.focus({ preventScroll: true }); event.preventDefault(); }
   else if (event.key === 'Escape' && batchMode && !batchPending && sidebar.contains(event.target as Node) && !event.defaultPrevented) { setBatchMode(false); event.preventDefault(); }
   if (menu && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
     const buttons = [...menu.querySelectorAll<HTMLButtonElement>('.menu-item:not(:disabled)')]; const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
@@ -572,7 +627,13 @@ function renderTree() {
       const empty = text('button', `＋ ${t('newSession')}`, 'empty-manager'); empty.addEventListener('click', () => send({ type: 'newSession', manager: manager.id })); fragment.append(empty);
     }
   }
-  if (!shown) fragment.append(text('div', needle ? t('noMatches') : !snapshot.visibleManagers.length ? t('noManagersSelected') : t('noManagersFound'), 'tree-empty'));
+  tree.setAttribute('aria-busy', String(!!snapshot.hostLoading));
+  if (!shown) {
+    if (snapshot.hostLoading) {
+      const loading = text('div', '', 'tree-empty tree-loading spinning'); loading.setAttribute('role', 'status');
+      loading.append(icon('refresh'), text('span', t('sshLoading'))); fragment.append(loading);
+    } else if (!snapshot.hostError) fragment.append(text('div', needle ? t('noMatches') : !snapshot.visibleManagers.length ? t('noManagersSelected') : t('noManagersFound'), 'tree-empty'));
+  }
   tree.replaceChildren(fragment);
   const rows = [...tree.querySelectorAll<HTMLElement>('.tree-row')];
   const focusRow = rows.find(row => row.dataset.node === focused) || rows.find(row => row.classList.contains('selected')) || rows[0];
@@ -598,7 +659,12 @@ window.addEventListener('message', event => {
   const message = event.data;
   if (message.type === 'snapshot') {
     const previousLocale = getLocale();
+    const hostChanged = snapshot.selectedHost !== message.state.selectedHost;
+    const hostsChanged = JSON.stringify(snapshot.hosts) !== JSON.stringify(message.state.hosts);
+    const refreshHostMenu = menu?.classList.contains('host-menu') && hostsChanged && !hostChanged;
+    const focusedHost = (document.activeElement as HTMLElement)?.dataset.profile, hostMenuScroll = menu?.scrollTop || 0;
     snapshot = message.state;
+    if (hostChanged && nativeTerminal) { closeMenu(); detailsDialog.close(); detailsRequest++; selectedSessions.clear(); setBatchMode(false); filter.value = ''; }
     setLocale(snapshot.locale);
     if (getLocale() !== previousLocale) {
       document.documentElement.lang = getLocale();
@@ -614,7 +680,12 @@ window.addEventListener('message', event => {
     if (target && target !== lastActiveTarget) {
       if (connection) { expanded.add(connection.manager); expanded.add(`${connection.manager}/${connection.sessionId}`); }
     }
-    lastActiveTarget = target; updateTerminal(); renderTree();
+    lastActiveTarget = target; updateHost(); updateTerminal(); renderTree();
+    if (refreshHostMenu) {
+      showHostMenu();
+      [...menu!.querySelectorAll<HTMLElement>('[data-profile]')].find(item => item.dataset.profile === focusedHost)?.focus({ preventScroll: true });
+      menu!.scrollTop = hostMenuScroll;
+    }
   } else if (message.type === 'output') {
     const entry = terminals.get(message.key);
     if (!entry) return;

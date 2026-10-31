@@ -804,6 +804,11 @@ body:is(.vscode-light, .vscode-high-contrast-light) :is(.session-checkbox, .batc
   -webkit-box-orient: vertical;
 }
 
+.tree-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .tree-empty {
   padding: 20px 14px;
   color: var(--vscode-descriptionForeground);

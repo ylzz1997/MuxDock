@@ -104,7 +104,9 @@ export class Adapter {
   private readonly execute: Runner;
   private get tmuxCompatible() { return this.id === 'tmux' || this.id === 'psmux'; }
   readonly capabilities: ManagerInfo['capabilities'];
-  constructor(readonly id: ManagerId, private settings: AdapterSettings = {}, execute: Runner = run, private platform = process.platform) {
+  constructor(readonly id: ManagerId, private settings: AdapterSettings = {}, execute: Runner = run, private platform = process.platform,
+    private inspectProcesses?: (settings: { manager: string; name: string; file: string; detach?: boolean }) => Promise<{ serverPid: number; shellPid?: number; terminalPids: number[]; clients: number[]; createdAt?: string; socket: string }>,
+    private locateExecutable: typeof findExecutable = findExecutable) {
     // Windows Zellij pairs separate command/reply pipes. Keep our CLI clients
     // ordered when a refresh overlaps details, tab actions or file drops.
     let pending: Promise<unknown> = Promise.resolve();
@@ -134,7 +136,7 @@ export class Adapter {
     if (this.platform === 'win32' && !['tmux', 'psmux', 'zellij', 'herdr'].includes(this.id) || this.platform !== 'win32' && this.id === 'psmux') {
       this.probeError = t('managerPlatform'); return false;
     }
-    this.executable = await findExecutable(this.id, this.settings.executable, this.id === 'tmux' && this.platform === 'win32' ? async file => {
+    this.executable = await this.locateExecutable(this.id, this.settings.executable, this.id === 'tmux' && this.platform === 'win32' ? async file => {
       const result = await this.execute({ file, args: ['-V'] });
       // psmux also ships a tmux.exe alias. Only the native tmux port belongs here.
       return result.code === 0 && /^tmux .*win32/im.test(result.stdout) && !/psmux/i.test(result.stdout + result.stderr);
@@ -328,6 +330,7 @@ export class Adapter {
     return socket;
   }
   private async sessionProcesses(session: SessionInfo, detach = false): Promise<{ serverPid: number; shellPid?: number; terminalPids: number[]; clients: number[]; createdAt?: string; socket: string }> {
+    if (this.inspectProcesses) return this.inspectProcesses({ manager: this.id, name: session.name, file: this.command([]).file, detach });
     const python = await findExecutable('python3');
     const script = [path.join(__dirname, 'session-processes.py'), path.join(__dirname, '../src/session-processes.py')].find(existsSync);
     if (!python || !script) throw new Error(t('pythonRequired'));

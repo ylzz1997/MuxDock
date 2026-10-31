@@ -1,0 +1,27 @@
+html[data-host="iterm2"] { --vscode-font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+.iterm2 .terminal-area, .iterm2 .splitter { display: none; }
+.iterm2 .sidebar { width: 100% !important; min-width: 0; flex: 1; border: 0; }
+.iterm2 .sidebar-header { padding: 0 7px; gap: 3px; }
+.iterm2 .sidebar-actions { gap: 0; }
+.host-bar { flex-shrink: 0; padding: 2px 6px 5px; border-bottom: 1px solid var(--vscode-panel-border, #ffffff12); }
+.host-button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 6px; border-radius: 4px; font-size: 12px; text-align: left; }
+.host-button:hover { background: var(--vscode-toolbar-hoverBackground, #ffffff16); }
+.host-name-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.host-button > .icon-chevron { transform: rotate(90deg); }
+.host-error { padding: 4px 6px; font-size: 11px; }
+.host-error p { max-height: 90px; margin: 0 0 5px; overflow: auto; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--vscode-errorForeground, #f48771); }
+.host-login { padding: 4px 7px; border: 1px solid var(--vscode-widget-border, #7776); border-radius: 4px; }
+.iterm2 .launch-button { flex: none; width: calc(100% - 12px); margin: 4px 6px; justify-content: flex-start; }
+.iterm2 .session-details { max-width: calc(100vw - 12px); width: calc(100vw - 12px); }
+.iterm2 .details-header { flex-wrap: wrap; gap: 4px; }
+.native-status { position: fixed; left: 6px; right: 6px; bottom: 4px; padding: 8px; z-index: 20; border-radius: 5px; background: #593c29; color: #fff1dc; font-size: 12px; text-align: left; overflow-wrap: anywhere; box-shadow: 0 2px 8px #0005; }
+.native-dialog { width: calc(100vw - 16px); max-width: 430px; padding: 16px; color: inherit; background: var(--vscode-panel-background, #242424); border: 1px solid #7776; border-radius: 8px; }
+.native-dialog h2 { font-size: 14px; margin: 0 0 14px; overflow-wrap: anywhere; }
+.native-dialog p { white-space: pre-wrap; font-size: 12px; overflow-wrap: anywhere; }
+.native-dialog input, .native-dialog select { width: 100%; min-width: 0; padding: 7px; border: 1px solid #7778; border-radius: 4px; color: inherit; background: var(--vscode-input-background, #363636); font: inherit; }
+.native-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.native-dialog-actions button { padding: 6px 12px; border-radius: 4px; }
+.native-dialog::backdrop { background: #0007; }
+@media (prefers-color-scheme: light) {
+  html[data-host="iterm2"] { --vscode-panel-background: #f6f6f6; --vscode-sideBar-background: #f6f6f6; --vscode-sideBar-foreground: #262626; --vscode-sideBarTitle-foreground: #424242; --vscode-foreground: #262626; --vscode-input-background: #fff; --vscode-input-foreground: #262626; --vscode-input-border: #b8b8b8; --vscode-input-placeholderForeground: #666; --vscode-panel-border: #d8d8d8; --vscode-list-hoverBackground: #e5e5e5; --vscode-list-activeSelectionBackground: #d4e8fa; --vscode-list-activeSelectionForeground: #172638; --vscode-list-inactiveSelectionBackground: #e2e8ee; --vscode-descriptionForeground: #626262; --vscode-editorWidget-background: #fff; --vscode-menu-background: #fff; --vscode-menu-foreground: #262626; --vscode-menu-selectionBackground: #d4e8fa; --vscode-menu-selectionForeground: #172638; --vscode-menu-border: #c2c2c2; --vscode-widget-border: #c2c2c2; --vscode-toolbar-hoverBackground: #d9d9d9; --vscode-errorForeground: #b52a25; --vscode-button-secondaryBackground: #ddd; --vscode-button-secondaryHoverBackground: #ccc; }
+}
