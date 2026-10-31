@@ -34,6 +34,25 @@ To reproduce the two-package release locally, also run `npm run package:iterm2`,
 
 The README, changelog and Marketplace listing are in English. The extension's existing UI labels are unchanged. `package.json` contains the listing description, icon, banner and `muxdock` publisher ID.
 
+## First npm publication of the iTerm2 package
+
+The iTerm2 distribution uses the unscoped public name `muxdock-iterm2`. It is built separately from the VS Code extension at the repository root. Verify your npm account's email and enable two-factor authentication before an interactive publication; see [npm's publishing requirements](https://docs.npmjs.com/creating-and-publishing-unscoped-public-packages/).
+
+From the repository, prepare and inspect the exact archive, then log in and publish it:
+
+```sh
+npm run package:iterm2
+npm publish ./artifacts/muxdock-iterm2-0.0.16.tgz --dry-run --access public --registry=https://registry.npmjs.org
+npm login --registry=https://registry.npmjs.org
+npm whoami --registry=https://registry.npmjs.org
+npm publish ./artifacts/muxdock-iterm2-0.0.16.tgz --access public --registry=https://registry.npmjs.org
+npm view muxdock-iterm2@0.0.16 version --registry=https://registry.npmjs.org
+```
+
+Complete login and any publishing verification in your own browser or terminal. The archive argument is intentional: a bare `npm publish` at the repository root targets the VS Code extension's `muxdock` package. Build this archive from the current sources; the earlier GitHub `v0.0.16` archive used the scoped name `@muxdock/iterm2` internally.
+
+After a successful publication, users can run `npm install -g muxdock-iterm2` and `muxdock-iterm2 start`. The current GitHub Release workflow uploads GitHub assets; npm Trusted Publishing can be configured separately after the initial publication.
+
 ## Visual Studio Marketplace
 
 1. Sign in with your Microsoft account at the [publisher management portal](https://marketplace.visualstudio.com/manage).

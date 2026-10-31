@@ -42,7 +42,8 @@ try {
   assert.doesNotMatch(contents, /\.py(?:c|o)?$/m, 'The iTerm2 package must not contain Python files');
   execFileSync('tar', ['-xzf', archive, '-C', temporary]);
   const iterm = path.join(temporary, 'package'), metadata = await json(path.join(iterm, 'package.json'));
-  assert.equal(metadata.name, '@muxdock/iterm2'); assert.equal(metadata.version, root.version);
+  assert.equal(metadata.name, 'muxdock-iterm2'); assert.equal(metadata.version, root.version);
+  assert.equal(metadata.publishConfig?.access, 'public'); assert.equal(metadata.publishConfig?.registry, 'https://registry.npmjs.org');
   assert.deepEqual(metadata.os, ['darwin']); assert.equal(metadata.bin['muxdock-iterm2'], 'dist/cli.cjs');
   await requireFile(path.join(iterm, 'dist/cli.cjs'), true);
   for (const file of ['dist/sidebar.js', 'dist/sidebar.css', 'dist/iterm2.css', 'README.md', 'LICENSE', 'THIRD-PARTY-NOTICES.txt']) await requireFile(path.join(iterm, file));

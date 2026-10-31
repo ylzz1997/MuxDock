@@ -31,7 +31,7 @@ for (const arch of ['arm64', 'x64']) {
   }
 }
 const root = JSON.parse(await readFile('package.json', 'utf8'));
-await writeFile(`${output}/package.json`, JSON.stringify({ name: '@muxdock/iterm2', version: root.version, description: 'MuxDock session sidebar for iTerm2 — no Python required', license: 'MIT', repository: root.repository, os: ['darwin'], engines: { node: '>=20' }, bin: { 'muxdock-iterm2': 'dist/cli.cjs' }, dependencies: { koffi: koffi.version }, optionalDependencies: { '@koromix/koffi-darwin-arm64': koffi.version, '@koromix/koffi-darwin-x64': koffi.version }, bundledDependencies: ['koffi', '@koromix/koffi-darwin-arm64', '@koromix/koffi-darwin-x64'], files: ['dist', 'README.md', 'LICENSE', 'THIRD-PARTY-NOTICES.txt'] }, null, 2));
+await writeFile(`${output}/package.json`, JSON.stringify({ name: 'muxdock-iterm2', version: root.version, description: 'MuxDock session sidebar for iTerm2 — no Python required', license: 'MIT', repository: root.repository, homepage: root.homepage, bugs: root.bugs, publishConfig: { access: 'public', registry: 'https://registry.npmjs.org' }, os: ['darwin'], engines: { node: '>=20' }, bin: { 'muxdock-iterm2': 'dist/cli.cjs' }, dependencies: { koffi: koffi.version }, optionalDependencies: { '@koromix/koffi-darwin-arm64': koffi.version, '@koromix/koffi-darwin-x64': koffi.version }, bundledDependencies: ['koffi', '@koromix/koffi-darwin-arm64', '@koromix/koffi-darwin-x64'], files: ['dist', 'README.md', 'LICENSE', 'THIRD-PARTY-NOTICES.txt'] }, null, 2));
 await cp('docs/ITERM2.md', `${output}/README.md`); await cp('LICENSE', `${output}/LICENSE`);
 let notices = '';
 for (const dependency of ['ws', 'smol-toml', '@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-search', '@xterm/addon-unicode11', 'koffi']) {
