@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.17
+
+- Prevent tmux-windows 3.6a from crashing when an app such as Codex draws a terminal hyperlink. MuxDock disables the affected hyperlink, clipboard and cursor-color forwarding capabilities for its connections to this version.
+- Publish the VS Code extension to Visual Studio Marketplace and Open VSX and the `muxdock-iterm2` package to npm through the release workflow. GitHub Releases continue to provide both packages and their checksums.
+
 ## 0.0.16
 
 - Add MuxDock for iTerm2: a Toolbelt sidebar that opens and reuses native terminal tabs. The separate Node.js package includes Apple Silicon and Intel bindings and requires no Python interpreter.
