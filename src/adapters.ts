@@ -121,6 +121,17 @@ export class Adapter {
     return { file: this.executable, args: [...(this.settings.args || []), ...args] };
   }
   private clientCommand(args: string[]): Command {
+    if (this.id === 'tmux' && this.platform === 'win32' && /^tmux 3\.6a-win32(?:\.\d+)?$/i.test(this.version || '')) {
+      // This port truncates pointers when expanding string terminfo parameters.
+      // Install the override before the first draw and scope it to our clients.
+      const term = 'xterm-muxdock';
+      const override = `${term}:Cs@:Ms@:Hls@`;
+      return {
+        ...this.command(['-T', 'RGB,osc7', 'if-shell', '-F', `#{==:#{m:*${override}*,#{terminal-overrides}},0}`,
+          `set-option -as terminal-overrides ${override}`, ';', ...args]),
+        env: { TERM: term }
+      };
+    }
     const version = this.id === 'tmux' && /tmux (?:next-)?(\d+)\.(\d+)/.exec(this.version || '');
     if (version) {
       const major = Number(version[1]); const minor = Number(version[2]);
@@ -255,7 +266,8 @@ export class Adapter {
       shpool: ['attach', '--dir', '.', '--cmd', ['/usr/bin/env', `SHELL=${shell}`, shell, '-l'].map(shellQuote).join(' '), name],
       abduco: ['-c', name, shell, '-l'], a4: ['-a', name], herdr: []
     };
-    return { ...this.clientCommand(commands[this.id]), env: { SHELL: this.id === 'a4' ? shell : environmentShell } };
+    const client = this.clientCommand(commands[this.id]);
+    return { ...client, env: { ...client.env, SHELL: this.id === 'a4' ? shell : environmentShell } };
   }
   async createHerdr(name: string, shell: string, startup: string | undefined, cwd: string, storage: string): Promise<Command> {
     return createHerdrSession(args => this.command(args), this.execute, name, shell, startup, cwd, storage);

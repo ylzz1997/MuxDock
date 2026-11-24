@@ -11,6 +11,7 @@ import type { SessionInfo } from '../src/model';
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const quote = (text: string) => `'${text.replaceAll("'", "''")}'`;
 const read = (file: string) => readFile(file, 'utf8').catch(() => '');
+const writeHyperlink = "[Console]::Write(([char]27 + ']8;;https://example.test' + [char]7 + 'TEST_LINK' + [char]27 + ']8;;' + [char]7))";
 const until = async <T>(fn: () => Promise<T | undefined | false>, label: string): Promise<T> => {
   const end = Date.now() + 20000;
   while (Date.now() < end) { const value = await fn(); if (value) return value; await delay(150); }
@@ -54,7 +55,9 @@ async function main() {
       for (const shellName of ['pwsh', 'powershell', 'cmd']) {
         const name = `${token}_${shellName}`;
         const marker = path.join(root, `${id}-${shellName}.txt`);
-        const startup = shellName === 'cmd' ? `echo ONCE>>"${marker}"` : `Add-Content -LiteralPath ${quote(marker)} -Value "ONCE:$($PID):中文" -Encoding utf8`;
+        const startupMarker = shellName === 'cmd' ? `echo ONCE>>"${marker}"` : `Add-Content -LiteralPath ${quote(marker)} -Value "ONCE:$($PID):中文" -Encoding utf8`;
+        const testHyperlink = id === 'tmux' && shellName === 'pwsh';
+        const startup = testHyperlink ? `${writeHyperlink}; ${startupMarker}` : startupMarker;
         const launch = await launchCommand(exe[shellName], startup, path.join(root, 'launchers'));
         owned.push({ id: name, name });
         const command = id === 'herdr' ? await adapter.createHerdr(name, exe[shellName], startup, root, path.join(root, 'launchers')) : adapter.create(name, launch.file, exe[shellName], launch.args);
@@ -82,8 +85,15 @@ async function main() {
         if (heartbeat) { connections.input(second.key, '\x03'); await delay(1000); }
         assert.equal((await read(marker)).match(/ONCE/g)?.length, 1);
         const after = path.join(root, `${id}-${shellName}-after.txt`);
-        connections.input(second.key, shellName === 'cmd' ? `echo AFTER>"${after}"\r` : `Set-Content -LiteralPath ${quote(after)} -Value AFTER\r`);
+        const afterMarker = shellName === 'cmd' ? `echo AFTER>"${after}"` : `Set-Content -LiteralPath ${quote(after)} -Value AFTER`;
+        connections.input(second.key, (testHyperlink ? `${writeHyperlink}; ${afterMarker}` : afterMarker) + '\r');
         await until(async () => (await read(after)).includes('AFTER'), 'input after reconnect');
+        if (testHyperlink) {
+          assert.equal(connections.list().find(item => item.key === second.key)?.closed, false);
+          const overrides = await run(adapter.command(['show-options', '-s', 'terminal-overrides']));
+          assert.equal(overrides.code, 0, overrides.stderr);
+          assert.equal(overrides.stdout.match(/xterm-muxdock:Cs@:Ms@:Hls@/g)?.length, 1);
+        }
         const details = await adapter.details(live);
         assert.ok(details.sections.length > 1);
         connections.disconnect(second.key);
